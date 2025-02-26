@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+pstools = {git = "https://github.com/profmadden/pstools_r"}
+hcwt_r = {git = "https://github.com/profmadden/hcwt_r"}
+bookshelf_r = { git = "https://github.com/profmadden/bookshelf_r" }
