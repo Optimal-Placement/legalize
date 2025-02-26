@@ -43,6 +43,11 @@ pub struct LegalParams {
     pub step_y: f32,
 }
 
+pub struct LegalProblem {
+    pub blocks: Vec<LegalBlock>,
+    pub params: LegalParams,
+}
+
 pub fn legalize_circuit(bc: &mut BookshelfCircuit, kind: LegalKind) {
     let mut blocks = Vec::new();
     
