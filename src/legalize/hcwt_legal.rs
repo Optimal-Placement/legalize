@@ -1,9 +1,9 @@
 use bookshelf_r::bookshelf::BookshelfCircuit;
 use hcwt_r;
 
-use super::{LegalPosition,LegalBlock,LegalParams};
+use super::{LegalBlock, LegalParams, LegalPosition, LegalProblem};
 
-pub fn legalize(blocks: &Vec<LegalBlock>, params: &LegalParams) -> Vec<LegalPosition> {
+pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
     println!("HCWT placement legalizer");
     // HCwT legalizer
     // Use dynamic programming, to stack up a row at a time.  Put all of the blocks into

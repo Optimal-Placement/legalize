@@ -1,0 +1,3 @@
+[submodule "libs/hcwt_r"]
+	path = libs/hcwt_r
+	url = https://github.com/profmadden/hcwt_r
