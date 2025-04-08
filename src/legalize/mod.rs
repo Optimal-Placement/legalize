@@ -81,7 +81,7 @@ pub fn load(filename: &String) -> LegalProblem {
 
     lp
 }
-
+/* 
 impl LegalProblem {
     pub fn postscript(&self, filename: &String, legalization: Vec<LegalPosition>) {
         // let mut pst = pstools_r::pstools_r::PS
@@ -97,6 +97,32 @@ impl LegalProblem {
         pst.set_color(0.5, 0.5, 1.0, 1.0);
         for block in &self.blocks {
             pst.add_box(block.x, block.y, block.x + block.w, block.y + block.h);
+        }
+
+        pst.generate(filename.clone());
+    }
+}
+*/
+
+impl LegalProblem {
+    pub fn postscript(&self, filename: &String, legalization: Vec<LegalPosition>) {
+        let mut pst = pstools::PSTool::new();
+
+        // Draw the border
+        let ox = self.params.origin_x;
+        let oy = self.params.origin_y;
+        let urx = ox + self.params.step_x * self.params.grid_x as f32;
+        let ury = oy + self.params.step_y * self.params.grid_y as f32;
+        pst.add_box(ox, oy, urx, ury);
+
+        // Use legalized coordinates instead of original coordinates
+        pst.set_color(0.5, 0.5, 1.0, 1.0);
+        for pos in legalization {
+            if let Some(block) = self.blocks.iter().find(|b| b.tag == pos.block) {
+                // Use the legalized coordinates (pos.x, pos.y)
+                pst.add_box(pos.x, pos.y, pos.x + block.w, pos.y + block.h);
+                
+            }
         }
 
         pst.generate(filename.clone());
