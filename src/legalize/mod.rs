@@ -52,6 +52,9 @@ pub struct LegalParams {
     pub origin_y: f32,
     pub step_x: f32,
     pub step_y: f32,
+    pub alpha_right: f32,
+    pub alpha_left: f32,
+
 }
 
 pub struct LegalProblem {
@@ -68,7 +71,7 @@ pub fn load(filename: &String) -> LegalProblem {
 
     let mut lp = LegalProblem {
         blocks: Vec::new(),
-        params: LegalParams { grid_x: gx, grid_y: gy, origin_x: ox, origin_y: oy, step_x: sx, step_y: sy },
+        params: LegalParams { grid_x: gx, grid_y: gy, origin_x: ox, origin_y: oy, step_x: sx, step_y: sy , alpha_right: 2.0 , alpha_left :0.5},
     };
     
     let line = getline(&mut reader).unwrap();
@@ -180,6 +183,8 @@ pub fn legalize_circuit(bc: &mut BookshelfCircuit, kind: LegalKind) {
         origin_y: bc.rows[0].bounds.lly,
         step_x: bc.rows[0].site_spacing,
         step_y: height,
+        alpha_right: 2.0,
+        alpha_left: 0.5,
     };
 
     // println!("Legalize {} blocks\nIn space: {}", blocks.len(), params);

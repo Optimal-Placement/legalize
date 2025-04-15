@@ -26,8 +26,8 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
     let mut row_usage = vec![0usize; params.grid_y]; // Track usage of each line
 
     // Direction-sensitive cost factor
-    const ALPHA_RIGHT: f32 = 2.0; // Penalty factor for moving to the right (higher)
-    const ALPHA_LEFT: f32 = 0.5;  // The reward factor for moving left (lower)
+    //const ALPHA_RIGHT: f32 = 2.0; // Penalty factor for moving to the right (higher)
+    //const ALPHA_LEFT: f32 = 0.5;  // The reward factor for moving left (lower)
     const BETA: f32 = 0.3;         // Row congestion penalty coefficient
 
 
@@ -60,9 +60,9 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
          // Calculating direction-sensitive costs
          let delta_x = left - block.x;
          let alpha = if delta_x > 0.0 { 
-             ALPHA_RIGHT  // Move right penalty
+             params.alpha_right  // Move right penalty
          } else { 
-             ALPHA_LEFT   // Move Left Reward
+            params.alpha_left  // Move Left Reward
          };
 
          // Row congestion penalty (the more times the current row is used, the greater the penalty)
