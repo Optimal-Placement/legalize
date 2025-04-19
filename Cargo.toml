@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 pstools = {git = "https://github.com/profmadden/pstools_r"}
 hcwt_r = {path = "libs/hcwt_r"}
-# bookshelf_r = { git = "https://github.com/profmadden/bookshelf_r" }
-bookshelf_r = {path = "/Users/optimal/src/bookshelf_r"}
+bookshelf_r = { git = "https://github.com/profmadden/bookshelf_r" }
+# bookshelf_r = {path = "/Users/optimal/src/bookshelf_r"}
 scan_fmt = "0.2.6"
 argh = "0.1.13"
