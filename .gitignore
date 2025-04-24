@@ -2,3 +2,6 @@
 *~
 *.DS_Store
 Cargo.lock
+
+[credential]
+helper = store

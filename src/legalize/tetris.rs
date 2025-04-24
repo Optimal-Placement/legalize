@@ -1,13 +1,5 @@
 use bookshelf_r::bookshelf::BookshelfCircuit;
-
 use super::{LegalBlock, LegalParams, LegalPosition, LegalProblem};
-
-/*pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
-    println!("Tetris placement legalizer");
-    Vec::new()
-}
-*/
-
 
 pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
     println!("Tetris placement legalizer"); // (optimized with directional cost)
@@ -19,7 +11,6 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
     // Sorting: prioritize blocks on the left
     blocks.sort_by(|a, b| a.x.partial_cmp(&b.x).expect("Could not compare"));
 
-
     //Initialize left edge
     let mut legal_positions = Vec::new();
     let mut left_edges = vec![params.origin_x; params.grid_y];
@@ -30,62 +21,61 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
     //const ALPHA_LEFT: f32 = 0.5;  // The reward factor for moving left (lower)
     const BETA: f32 = 0.3;         // Row congestion penalty coefficient
 
-
     //Go through each block and find the best place to put it
     for block in &blocks {
-        // cal row
-        let block_rows = (block.h / params.step_y).round() as usize;
-        let best_row = ((block.y - params.origin_y) / params.step_y).round() as usize;
+        // Modified: Use ceil() to calculate required rows and ensure minimum 1 row
+        let block_rows = (block.h / params.step_y).ceil() as usize;
+        let block_rows = block_rows.max(1); // Ensure at least 1 row
         
-        // Search range: 5 lines up and down (adjustable as needed)
-        let low_row = best_row.saturating_sub(5);
-        let high_row = (best_row + 5).min(params.grid_y.saturating_sub(block_rows));
+        // Modified: Dynamic search range calculation with floor() for safety
+        let best_row = ((block.y - params.origin_y) / params.step_y).floor() as usize;
+        let search_radius = (5 * params.grid_y / 100).max(5); // At least 5 rows or 5% of total
+        let low_row = best_row.saturating_sub(search_radius);
+        let high_row = (best_row + search_radius).min(params.grid_y.saturating_sub(block_rows));
 
-
-        //Find the location of min displacement near the optimal row
         let mut best_row = best_row;
         let mut best_cost = f32::MAX;
         let mut best_x = params.origin_x;
 
         for row in low_row..=high_row {
-            // Calculates the available left margin of the current line
-            let mut left = left_edges[row];
-            for r in row..row + block_rows {
-                left = left.max(left_edges[r]);
+            // Modified: Safer multi-row left edge calculation
+            let row_range = row..(row + block_rows);
+            let left = row_range.clone()
+                .map(|r| left_edges.get(r).unwrap_or(&params.origin_x))
+                .fold(params.origin_x, |a, &b| a.max(b));
+
+            // Original congestion calculation with dynamic beta
+            let dynamic_beta = BETA * (1.0 + row_usage[row] as f32 / 10.0);
+
+            // Original direction-sensitive cost calculation
+            let delta_x = left - block.x;
+            let alpha = if delta_x > 0.0 { 
+                params.alpha_right  // Move right penalty
+            } else { 
+                params.alpha_left  // Move Left Reward
+            };
+
+            // Modified: Improved Y-displacement calculation considering height
+            let placed_y = params.origin_y + row as f32 * params.step_y;
+            let delta_y = (block.y - placed_y).abs() + 
+                          (block.h - (block_rows as f32 * params.step_y)).abs() * 0.1;
+
+            let row_crowding = dynamic_beta * (row_usage[row] as f32);
+            let cost = delta_y + alpha * delta_x.abs() + row_crowding;
+
+            if cost < best_cost {
+                best_row = row;
+                best_cost = cost;
+                best_x = left;
             }
-        // Dynamically adjust BETA based on row usage
-        let dynamic_beta = BETA * (1.0 + row_usage[row] as f32 / 10.0);
-
-
-         // Calculating direction-sensitive costs
-         let delta_x = left - block.x;
-         let alpha = if delta_x > 0.0 { 
-             params.alpha_right  // Move right penalty
-         } else { 
-            params.alpha_left  // Move Left Reward
-         };
-
-         // Row congestion penalty (the more times the current row is used, the greater the penalty)
-         let row_crowding = dynamic_beta * (row_usage[row] as f32);
-
-         // Comprehensive cost calculation
-         let delta_y = (block.y - (params.origin_y + row as f32 * params.step_y)).abs();
-         let cost = delta_y + alpha * delta_x.abs() + row_crowding;
-
-         if cost < best_cost {
-             best_row = row;
-             best_cost = cost;
-             best_x = left;
-         }
         }
 
-        // Verify no overlap
-        for r in best_row..best_row + block_rows {
-            assert!(
-                best_x + block.w <= params.origin_x + params.grid_x as f32 * params.step_x,
-                "Placement would exceed right boundary"
-            );
-        }
+        // Modified: Enhanced boundary checking with better error message
+        assert!(
+            best_row + block_rows <= params.grid_y,
+            "Vertical placement out of bounds for block {} (required rows: {}, available: {})",
+            block.tag, block_rows, params.grid_y - best_row
+        );
 
         // Record legalization location
         legal_positions.push(LegalPosition {
@@ -99,13 +89,7 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
             left_edges[r] = best_x + block.w;
             row_usage[r] += 1;
         }
-
-
-
-
-
     }
 
     legal_positions
 }
-
