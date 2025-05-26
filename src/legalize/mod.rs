@@ -118,6 +118,20 @@ impl LegalProblem {
         let ury = oy + self.params.step_y * self.params.grid_y as f32;
         pst.add_box(ox, oy, urx, ury);
 
+
+        // Draw displacement lines in red first (underneath the blocks)
+        pst.set_color(1.0, 0.0, 0.0, 1.0);
+        for pos in &legalization {
+            if let Some(block) = self.blocks.iter().find(|b| b.tag == pos.block) {
+                // Draw line from original center to legalized center
+                let orig_center_x = block.x + block.w / 2.0;
+                let orig_center_y = block.y + block.h / 2.0;
+                let legal_center_x = pos.x + block.w / 2.0;
+                let legal_center_y = pos.y + block.h / 2.0;
+                pst.add_line(orig_center_x, orig_center_y, legal_center_x, legal_center_y);
+            }
+        }
+
         // Use legalized coordinates instead of original coordinates
         pst.set_color(0.5, 0.5, 1.0, 1.0);
         for pos in legalization {
@@ -128,9 +142,20 @@ impl LegalProblem {
             }
         }
 
+
+/* 
+        // Draw legalized positions in blue (on top of the lines)
+        pst.set_color(0.2, 0.2, 0.8, 1.0);
+        for pos in legalization {
+            if let Some(block) = self.blocks.iter().find(|b| b.tag == pos.block) {
+                pst.add_box(pos.x, pos.y, pos.x + block.w, pos.y + block.h);
+            }
+        }        
+*/
         pst.generate(filename.clone());
     }
 }
+
 
 fn getline(reader: &mut BufReader<File>) -> std::io::Result<String> {
     loop {

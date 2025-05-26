@@ -19,7 +19,7 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
     // Direction-sensitive cost factor
     //const ALPHA_RIGHT: f32 = 2.0; // Penalty factor for moving to the right (higher)
     //const ALPHA_LEFT: f32 = 0.5;  // The reward factor for moving left (lower)
-    const BETA: f32 = 0.3;         // Row congestion penalty coefficient
+    const BETA: f32 = 0.5;         // Row congestion penalty coefficient
 
     //Go through each block and find the best place to put it
     for block in &blocks {
