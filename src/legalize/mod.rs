@@ -118,7 +118,7 @@ impl LegalProblem {
         let ury = oy + self.params.step_y * self.params.grid_y as f32;
         pst.add_box(ox, oy, urx, ury);
 
-/* 
+ 
         // Draw displacement lines in red first (underneath the blocks)
         pst.set_color(1.0, 0.0, 0.0, 1.0);
         for pos in &legalization {
@@ -131,7 +131,7 @@ impl LegalProblem {
                 pst.add_line(orig_center_x, orig_center_y, legal_center_x, legal_center_y);
             }
         }
-*/
+
         // Use legalized coordinates instead of original coordinates
         pst.set_color(0.5, 0.5, 1.0, 1.0);
         for pos in legalization {

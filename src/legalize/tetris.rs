@@ -93,3 +93,62 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
 
     legal_positions
 }
+
+pub fn legalize_floorplan(lp: &LegalProblem) -> Vec<LegalPosition> {
+    println!("Floorplan legalizer with x-compaction (Tetris-style left-packing)");
+
+    let mut blocks = lp.blocks.clone();
+    let params = &lp.params;
+
+    //Identify all unique y positions (y1 & y2 for each block)
+    let mut y_points = Vec::new();
+    for block in &blocks {
+        y_points.push(block.y);
+        y_points.push(block.y + block.h);
+    }
+
+    //Sort and deduplicate the y positions
+    y_points.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    y_points.dedup();
+
+    //Map each vertical span (y1..y2) to a mutable left edge X position
+    let mut y_segments = vec![params.origin_x; y_points.len() - 1];
+
+    //find index of a y value in y_points
+    let find_y_index = |y: f32| -> usize {
+        y_points.binary_search_by(|probe| probe.partial_cmp(&y).unwrap())
+            .unwrap_or_else(|i| i.saturating_sub(1))
+    };
+
+    //Sort blocks by x (left to right)
+    blocks.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+
+    let mut legal_positions = Vec::new();
+
+    for block in &blocks {
+        let y_start = find_y_index(block.y);
+        let y_end = find_y_index(block.y + block.h);
+
+        //Determine the left-most X that this block can be placed at
+        let mut max_x = params.origin_x;
+        for y_idx in y_start..y_end {
+            if y_segments[y_idx] > max_x {
+                max_x = y_segments[y_idx];
+            }
+        }
+
+        // lace the block at max x
+        legal_positions.push(LegalPosition {
+            block: block.tag,
+            x: max_x,
+            y: block.y, //y unchange
+        });
+
+        //Update all y_segments that this block covers
+        for y_idx in y_start..y_end {
+            y_segments[y_idx] = max_x + block.w;
+        }
+    }
+
+    legal_positions
+}
