@@ -45,6 +45,7 @@ pub struct LegalBlock {
     pub w: f32,
 }
 
+#[derive(Copy, Clone)]
 pub struct LegalParams {
     pub grid_x: usize,
     pub grid_y: usize,
@@ -57,6 +58,7 @@ pub struct LegalParams {
 
 }
 
+#[derive(Clone)]
 pub struct LegalProblem {
     pub blocks: Vec<LegalBlock>,
     pub params: LegalParams,
@@ -108,7 +110,7 @@ impl LegalProblem {
 */
 
 impl LegalProblem {
-    pub fn postscript(&self, filename: &String, legalization: Vec<LegalPosition>) {
+    pub fn postscript(&self, filename: &String, legalization: &Vec<LegalPosition>) {
         let mut pst = pstools::PSTool::new();
 
         // Draw the border
@@ -121,7 +123,7 @@ impl LegalProblem {
  
         // Draw displacement lines in red first (underneath the blocks)
         pst.set_color(1.0, 0.0, 0.0, 1.0);
-        for pos in &legalization {
+        for pos in legalization {
             if let Some(block) = self.blocks.iter().find(|b| b.tag == pos.block) {
                 // Draw line from original center to legalized center
                 let orig_center_x = block.x + block.w / 2.0;
@@ -135,10 +137,12 @@ impl LegalProblem {
         // Use legalized coordinates instead of original coordinates
         pst.set_color(0.5, 0.5, 1.0, 1.0);
         for pos in legalization {
-            if let Some(block) = self.blocks.iter().find(|b| b.tag == pos.block) {
+            // if let Some(block) = self.blocks.iter().find(|b| b.tag == pos.block) {
+            {
+                let block = &self.blocks[pos.block];
                 // Use the legalized coordinates (pos.x, pos.y)
                 pst.add_box(pos.x, pos.y, pos.x + block.w, pos.y + block.h);
-                
+                pst.add_text(pos.x + block.w/2.0, pos.y + block.h/2.0, format!("{}", block.tag));
             }
         }
 
@@ -153,6 +157,118 @@ impl LegalProblem {
         }        
 */
         pst.generate(filename.clone());
+    }
+
+    pub fn postscript_fixed(&self, filename:&String) {
+        let mut pst = pstools::PSTool::new();
+
+        // Draw the border
+        let ox = self.params.origin_x;
+        let oy = self.params.origin_y;
+        let urx = ox + self.params.step_x * self.params.grid_x as f32;
+        let ury = oy + self.params.step_y * self.params.grid_y as f32;
+        pst.add_box(ox, oy, urx, ury);
+
+ 
+        // Use legalized coordinates instead of original coordinates
+        pst.set_color(0.5, 0.5, 1.0, 1.0);
+        for block in &self.blocks {
+            // if let Some(block) = self.blocks.iter().find(|b| b.tag == pos.block) {
+            {
+                pst.add_box(block.x, block.y, block.x + block.w, block.y + block.h);
+                pst.add_text(block.x + block.w/2.0, block.y + block.h/2.0, format!("{}", block.tag));
+            }
+        }
+        pst.generate(filename.clone());
+    }
+
+    pub fn new() -> LegalProblem {
+        LegalProblem{
+            blocks: Vec::new(),
+            params: LegalParams {
+                grid_x: 0,
+                grid_y: 0,
+                origin_x: 0.0,
+                origin_y: 0.0,
+                step_x: 1.0,
+                step_y: 1.0,
+                alpha_left: 0.0,
+                alpha_right: 0.0,
+            }
+        }
+    }
+
+    pub fn move_blocks(&mut self, legalization: &Vec<LegalPosition>) {
+        for pos in legalization {
+            self.blocks[pos.block].x = pos.x;
+            self.blocks[pos.block].y = pos.y;
+        }
+    }
+
+    pub fn rotate(&mut self) {
+        std::mem::swap(&mut self.params.grid_x, &mut self.params.grid_y);
+        std::mem::swap(&mut self.params.origin_x, &mut self.params.origin_y);
+        std::mem::swap(&mut self.params.step_x, &mut self.params.step_y);
+        std::mem::swap(&mut self.params.alpha_left, &mut self.params.alpha_right);
+        for b in &mut self.blocks {
+            std::mem::swap(&mut b.x, &mut b.y);
+            std::mem::swap(&mut b.h, &mut b.w);
+        }
+    }
+    pub fn bounds(&self) -> pstools::bbox::BBox {
+        let mut bbox = pstools::bbox::BBox::new();
+        for block in &self.blocks {
+            bbox.addpoint(block.x, block.y);
+            bbox.addpoint(block.x + block.w, block.y + block.h);
+        }
+        bbox
+    }
+    pub fn move_to_origin(&mut self) {
+        let bbox = self.bounds();
+        let dx = bbox.llx - self.params.origin_x;
+        let dy = bbox.lly - self.params.origin_y;
+        for block in &mut self.blocks {
+            block.x -= dx;
+            block.y -= dy;
+        }
+    }
+    pub fn mirror_x(&mut self) {
+        let bbox = self.bounds();
+        for block in &mut self.blocks {
+            block.x = bbox.urx - (block.x + block.w);
+        }
+    }
+
+    pub fn mirror_y(&mut self) {
+        let bbox = self.bounds();
+        for block in &mut self.blocks {
+            block.y = bbox.ury - (block.y + block.h);
+        }
+    }
+
+    pub fn pack_west(&mut self) {
+        let leg = legalize_floorplan(self);
+        self.move_blocks(&leg);
+    }
+
+    pub fn pack_east(&mut self) {
+        self.mirror_x();
+        let leg = legalize_floorplan(self);
+        self.move_blocks(&leg);
+        self.mirror_x();
+    }
+
+    pub fn pack_south(&mut self) {
+        self.rotate();
+        let leg = legalize_floorplan(self);
+        self.move_blocks(&leg);
+        self.rotate();
+    }
+
+    pub fn pack_north(&mut self) {
+        self.mirror_y();
+        self.pack_south();
+        self.mirror_y();
     }
 }
 
@@ -224,6 +340,8 @@ pub fn legalize_circuit(bc: &mut BookshelfCircuit, kind: LegalKind) {
 }
 
 use std::fmt;
+
+use crate::legalize::tetris::legalize_floorplan;
 
 impl fmt::Display for LegalParams {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

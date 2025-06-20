@@ -44,7 +44,7 @@ fn main() {
     }
     
     if arguments.postscript.is_some() {
-        lp.postscript(&arguments.postscript.unwrap(), legal);
+        lp.postscript(&arguments.postscript.unwrap(), &legal);
     }
 
 

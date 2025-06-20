@@ -2,9 +2,12 @@ use bookshelf_r::bookshelf::BookshelfCircuit;
 use super::{LegalBlock, LegalParams, LegalPosition, LegalProblem};
 
 pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
-    println!("Tetris placement legalizer"); // (optimized with directional cost)
+    // println!("Tetris placement legalizer"); // (optimized with directional cost)
 
     let mut blocks = lp.blocks.clone();
+    for i in 0..blocks.len() {
+        blocks[i].tag = i;
+    }
     let params = &lp.params;
 
     // Sort blocks by their preferred X position
@@ -95,9 +98,16 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
 }
 
 pub fn legalize_floorplan(lp: &LegalProblem) -> Vec<LegalPosition> {
-    println!("Floorplan legalizer with x-compaction (Tetris-style left-packing)");
+    // println!("Floorplan legalizer with x-compaction (Tetris-style left-packing)");
 
     let mut blocks = lp.blocks.clone();
+
+    // Replace the block ID with the index into the original list.  This way, we can
+    // avoid searching for a matching block tag
+    for i in 0..blocks.len() {
+        blocks[i].tag = i;
+    }
+
     let params = &lp.params;
 
     //Identify all unique y positions (y1 & y2 for each block)
