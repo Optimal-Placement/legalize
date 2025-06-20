@@ -2,3 +2,8 @@
 *~
 *.DS_Store
 Cargo.lock
+*.ps
+*.pdf
+
+[credential]
+helper = store
