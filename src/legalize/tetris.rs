@@ -136,6 +136,7 @@ pub fn legalize_floorplan(lp: &LegalProblem) -> Vec<LegalPosition> {
                 max_x = y_segments[y_idx];
             }
         }
+        // println!("Pack block {} at {} {}", block.tag, max_x, block.y);
 
         // lace the block at max x
         legal_positions.push(LegalPosition {
