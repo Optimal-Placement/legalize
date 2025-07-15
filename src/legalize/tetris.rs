@@ -2,12 +2,9 @@ use bookshelf_r::bookshelf::BookshelfCircuit;
 use super::{LegalBlock, LegalParams, LegalPosition, LegalProblem};
 
 pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
-    // println!("Tetris placement legalizer"); // (optimized with directional cost)
+    //println!("Tetris placement legalizer"); // (optimized with directional cost)
 
     let mut blocks = lp.blocks.clone();
-    for i in 0..blocks.len() {
-        blocks[i].tag = i;
-    }
     let params = &lp.params;
 
     // Sort blocks by their preferred X position
@@ -98,16 +95,9 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
 }
 
 pub fn legalize_floorplan(lp: &LegalProblem) -> Vec<LegalPosition> {
-    // println!("Floorplan legalizer with x-compaction (Tetris-style left-packing)");
+    //println!("Floorplan legalizer with x-compaction (Tetris-style left-packing)");
 
     let mut blocks = lp.blocks.clone();
-
-    // Replace the block ID with the index into the original list.  This way, we can
-    // avoid searching for a matching block tag
-    for i in 0..blocks.len() {
-        blocks[i].tag = i;
-    }
-
     let params = &lp.params;
 
     //Identify all unique y positions (y1 & y2 for each block)
@@ -146,6 +136,7 @@ pub fn legalize_floorplan(lp: &LegalProblem) -> Vec<LegalPosition> {
                 max_x = y_segments[y_idx];
             }
         }
+        // println!("Pack block {} at {} {}", block.tag, max_x, block.y);
 
         // lace the block at max x
         legal_positions.push(LegalPosition {
@@ -162,3 +153,62 @@ pub fn legalize_floorplan(lp: &LegalProblem) -> Vec<LegalPosition> {
 
     legal_positions
 }
+
+pub fn legalize_standard(lp: &LegalProblem) -> Vec<LegalPosition> {
+
+    let mut blocks = lp.blocks.clone();
+    let params = &lp.params;
+
+    //total width & average target width per row (W)
+    let total_width: f32 = blocks.iter().map(|b| b.w).sum();
+    let target_row_width = total_width / params.grid_y.max(1) as f32;
+
+    //sort by Y
+    blocks.sort_by(|a, b| a.y.partial_cmp(&b.y).unwrap());
+
+    let mut unplaced = blocks;
+    let mut legal_positions = Vec::new();
+    let mut current_row = 0;
+
+    //place row by row until all placed
+    while !unplaced.is_empty() {
+        let mut row_cells = Vec::new();
+        let mut accumulated_width = 0.0;
+        let mut i = 0;
+
+        //select total width ≈ W 
+        while i < unplaced.len() {
+            let cell = &unplaced[i];
+            if accumulated_width + cell.w <= target_row_width * 1.1 {
+                accumulated_width += cell.w;
+                row_cells.push(unplaced.remove(i));
+            } else {
+                i += 1;
+            }
+
+            if accumulated_width >= target_row_width * 0.9 {
+                break;
+            }
+        }
+
+        //sort by X & place 
+        row_cells.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+
+        let mut current_x = params.origin_x;
+        let current_y = params.origin_y + current_row as f32 * params.step_y;
+
+        for cell in row_cells {
+            legal_positions.push(LegalPosition {
+                block: cell.tag,
+                x: current_x,
+                y: current_y,
+            });
+            current_x += cell.w;
+        }
+
+        current_row += 1;
+    }
+
+    legal_positions
+}
+
