@@ -10,6 +10,10 @@ struct Args {
     #[argh(switch, short = 'h')]
     hcwt: bool,
 
+    /// rowfill legalization
+    #[argh(switch, short = 'r')]
+    rowfill: bool,
+    
     /// file to load
     #[argh(option, short = 'f')]
     file: Option<String>,
@@ -18,6 +22,7 @@ struct Args {
     #[argh(option, short = 'o')]
     output: Option<String>,
 
+        
     /// postScript output file
     #[argh(option, short = 'P')]
     postscript: Option<String>,
@@ -42,6 +47,9 @@ fn main() {
     if arguments.hcwt {
         legal = legalize::legalize::hcwt_legal::legalize(&lp);
     }
+    if arguments.rowfill {
+        legal = legalize::legalize::rowfill::legalize(&lp);
+    }    
     
     if arguments.postscript.is_some() {
         lp.postscript(&arguments.postscript.unwrap(), &legal);

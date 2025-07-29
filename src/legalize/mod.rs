@@ -8,6 +8,7 @@
 //
 pub mod hcwt_legal;
 pub mod tetris;
+pub mod rowfill;
 
 use scan_fmt::scan_fmt;
 use std::fs::File;
@@ -30,9 +31,23 @@ pub enum LegalKind {
 
 #[derive(Copy, Clone)]
 pub struct LegalPosition {
-    pub block: usize, // Refers to the index of a LegalBlock
+    pub block_tag: usize, // Refers to the index of a LegalBlock
     pub x: f32,       // Legalized position XY, lower left corner
     pub y: f32,
+    pub h: f32,
+    pub w: f32,
+    pub original_x: f32,
+    pub original_y: f32,
+}
+
+pub fn bounds(blocks: &Vec<LegalPosition>) -> pstools::bbox::BBox {
+    let mut bb = pstools::bbox::BBox::new();
+    for b in blocks {
+        bb.addpoint(b.x, b.y);
+        bb.addpoint(b.x + b.w, b.y + b.h);
+    }
+
+    bb
 }
 
 // Convert
@@ -123,26 +138,29 @@ impl LegalProblem {
  
         // Draw displacement lines in red first (underneath the blocks)
         pst.set_color(1.0, 0.0, 0.0, 1.0);
-        for pos in legalization {
-            if let Some(block) = self.blocks.iter().find(|b| b.tag == pos.block) {
+        for block in legalization {
+            // if let Some(block) = self.blocks.iter().find(|b| b.tag == pos.block) {
+            // let block = &self.blocks[pos.block_tag];
+            {
                 // Draw line from original center to legalized center
-                let orig_center_x = block.x + block.w / 2.0;
-                let orig_center_y = block.y + block.h / 2.0;
-                let legal_center_x = pos.x + block.w / 2.0;
-                let legal_center_y = pos.y + block.h / 2.0;
+                let orig_center_x = block.original_x + block.w / 2.0;
+                let orig_center_y = block.original_y + block.h / 2.0;
+                let legal_center_x = block.x + block.w / 2.0;
+                let legal_center_y = block.y + block.h / 2.0;
                 pst.add_line(orig_center_x, orig_center_y, legal_center_x, legal_center_y);
             }
         }
 
+        pst.set_font(4.0, "Courier".to_string());
         // Use legalized coordinates instead of original coordinates
         pst.set_color(0.5, 0.5, 1.0, 1.0);
-        for pos in legalization {
+        for block in legalization {
             // if let Some(block) = self.blocks.iter().find(|b| b.tag == pos.block) {
             {
-                let block = &self.blocks[pos.block];
+                // let block = &self.blocks[pos.block_tag];
                 // Use the legalized coordinates (pos.x, pos.y)
-                pst.add_box(pos.x, pos.y, pos.x + block.w, pos.y + block.h);
-                pst.add_text(pos.x + block.w/2.0, pos.y + block.h/2.0, format!("{}", block.tag));
+                pst.add_box(block.x, block.y, block.x + block.w, block.y + block.h);
+                pst.add_text(block.x + block.w/2.0, block.y + block.h/2.0, format!("{}", block.block_tag));
             }
         }
 
@@ -169,7 +187,7 @@ impl LegalProblem {
         let ury = oy + self.params.step_y * self.params.grid_y as f32;
         pst.add_box(ox, oy, urx, ury);
 
- 
+        pst.set_font(4.0, "Courier".to_string());
         // Use legalized coordinates instead of original coordinates
         pst.set_color(0.5, 0.5, 1.0, 1.0);
         for block in &self.blocks {
@@ -200,8 +218,8 @@ impl LegalProblem {
 
     pub fn move_blocks(&mut self, legalization: &Vec<LegalPosition>) {
         for pos in legalization {
-            self.blocks[pos.block].x = pos.x;
-            self.blocks[pos.block].y = pos.y;
+            self.blocks[pos.block_tag].x = pos.x;
+            self.blocks[pos.block_tag].y = pos.y;
         }
     }
 

@@ -79,9 +79,13 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
 
         // Record legalization location
         legal_positions.push(LegalPosition {
-            block: block.tag,
+            block_tag: block.tag,
             x: best_x,
             y: params.origin_y + best_row as f32 * params.step_y,
+            h: block.h,
+            w: block.w,
+            original_x: block.x,
+            original_y: block.y,
         });
 
         // Update left margin and row usage count
@@ -140,9 +144,13 @@ pub fn legalize_floorplan(lp: &LegalProblem) -> Vec<LegalPosition> {
 
         // lace the block at max x
         legal_positions.push(LegalPosition {
-            block: block.tag,
+            block_tag: block.tag,
             x: max_x,
             y: block.y, //y unchange
+            h: block.h,
+            w: block.w,
+            original_x: block.x,
+            original_y: block.y,
         });
 
         //Update all y_segments that this block covers
@@ -172,7 +180,7 @@ pub fn legalize_standard(lp: &LegalProblem) -> Vec<LegalPosition> {
 
     //place row by row until all placed
     while !unplaced.is_empty() {
-        let mut row_cells = Vec::new();
+        let mut row_blocks = Vec::new();
         let mut accumulated_width = 0.0;
         let mut i = 0;
 
@@ -181,7 +189,7 @@ pub fn legalize_standard(lp: &LegalProblem) -> Vec<LegalPosition> {
             let cell = &unplaced[i];
             if accumulated_width + cell.w <= target_row_width * 1.1 {
                 accumulated_width += cell.w;
-                row_cells.push(unplaced.remove(i));
+                row_blocks.push(unplaced.remove(i));
             } else {
                 i += 1;
             }
@@ -192,18 +200,22 @@ pub fn legalize_standard(lp: &LegalProblem) -> Vec<LegalPosition> {
         }
 
         //sort by X & place 
-        row_cells.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+        row_blocks.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
 
         let mut current_x = params.origin_x;
         let current_y = params.origin_y + current_row as f32 * params.step_y;
 
-        for cell in row_cells {
+        for block in row_blocks {
             legal_positions.push(LegalPosition {
-                block: cell.tag,
+                block_tag: block.tag,
                 x: current_x,
                 y: current_y,
+                h: block.h,
+                w: block.w,
+                original_x: block.x,
+                original_y: block.y,
             });
-            current_x += cell.w;
+            current_x += block.w;
         }
 
         current_row += 1;
