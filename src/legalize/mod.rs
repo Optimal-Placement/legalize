@@ -59,6 +59,29 @@ pub struct LegalBlock {
     pub h: f32, // Height and width of the block
     pub w: f32,
 }
+use std::cmp::Ordering;
+
+impl Ord for LegalBlock {
+    fn cmp(&self, &other: &Self) -> Ordering {
+        self.tag.cmp(&other.tag)
+    }
+}
+
+impl PartialOrd for LegalBlock {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for LegalBlock {
+    fn eq(&self, other: &LegalBlock) -> bool {
+        self.tag == other.tag
+    }
+}
+
+impl Eq for LegalBlock {
+
+}
 
 #[derive(Copy, Clone)]
 pub struct LegalParams {
@@ -138,6 +161,8 @@ impl LegalProblem {
  
         // Draw displacement lines in red first (underneath the blocks)
         pst.set_color(1.0, 0.0, 0.0, 1.0);
+        let mut displace = 0.0;
+        let mut maxdisplace = 0.0;
         for block in legalization {
             // if let Some(block) = self.blocks.iter().find(|b| b.tag == pos.block) {
             // let block = &self.blocks[pos.block_tag];
@@ -147,9 +172,15 @@ impl LegalProblem {
                 let orig_center_y = block.original_y + block.h / 2.0;
                 let legal_center_x = block.x + block.w / 2.0;
                 let legal_center_y = block.y + block.h / 2.0;
+                let d = (orig_center_x - legal_center_x).abs() + (orig_center_y - legal_center_y).abs();
+                displace += d;
+                if d > maxdisplace {
+                    maxdisplace = d;
+                }
                 pst.add_line(orig_center_x, orig_center_y, legal_center_x, legal_center_y);
             }
         }
+
 
         pst.set_font(4.0, "Courier".to_string());
         // Use legalized coordinates instead of original coordinates
@@ -165,6 +196,11 @@ impl LegalProblem {
         }
 
 
+        pst.set_color(0.0, 0.0, 0.0, 1.0);
+        pst.set_font(16.0, "Courier".to_string());
+        pst.add_text(ox + 20.0, ury - 20.0, format!("Displace: {}", displace));
+        pst.add_text(ox + 20.0, ury - 40.0, format!("Max displace: {:6.1}", maxdisplace));
+
 /* 
         // Draw legalized positions in blue (on top of the lines)
         pst.set_color(0.2, 0.2, 0.8, 1.0);
@@ -174,6 +210,7 @@ impl LegalProblem {
             }
         }        
 */
+        pst.set_border(self.params.step_y * 2.0);
         pst.generate(filename.clone());
     }
 

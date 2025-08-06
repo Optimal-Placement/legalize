@@ -12,3 +12,5 @@ bookshelf_r = { git = "https://github.com/profmadden/bookshelf_r" }
 # bookshelf_r = {path = "/Users/optimal/src/bookshelf_r"}
 scan_fmt = "0.2.6"
 argh = "0.1.13"
+priority-queue = "2.5.0"
+binary-heap-plus = "0.5.0"
