@@ -171,7 +171,7 @@ fn generate(hcwt: &HCwT<Context,Option,Node>, context: &mut Context, level: usiz
         dy = context.rowpair.y0 - block.y;
         new_node.lower += block.w;
         new_node.decision = true;
-        new_node.cost += dx*dx + dy*dy;
+        new_node.cost += dx*dx*10.0 + dy*dy; // Penalize horizontal shifts more?
         // new_node.cost += (dx*dx*dx).abs() + (dy*dy*dy).abs();
         // new_node.cost += (dx + dy).abs();
     } else {

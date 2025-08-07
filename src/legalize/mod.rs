@@ -197,9 +197,9 @@ impl LegalProblem {
 
 
         pst.set_color(0.0, 0.0, 0.0, 1.0);
-        pst.set_font(16.0, "Courier".to_string());
+        pst.set_font(24.0, "Courier".to_string());
         pst.add_text(ox + 20.0, ury - 20.0, format!("Displace: {}", displace));
-        pst.add_text(ox + 20.0, ury - 40.0, format!("Max displace: {:6.1}", maxdisplace));
+        pst.add_text(ox + 20.0, ury - 50.0, format!("Max displace: {:6.1}", maxdisplace));
 
 /* 
         // Draw legalized positions in blue (on top of the lines)
