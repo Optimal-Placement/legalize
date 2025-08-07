@@ -148,6 +148,17 @@ impl LegalProblem {
 */
 
 impl LegalProblem {
+    pub fn save(&self, filepath: &String){
+        let mut f;
+
+        // if the file path is empty, just print to standard out
+        f = Box::new(File::create(filepath).unwrap()) as Box<dyn Write>;
+        writeln!(&mut f, "{} {} {} {} {} {}", self.params.grid_x, self.params.grid_y, self.params.origin_x, self.params.origin_y, self.params.step_x, self.params.step_y);
+        writeln!(&mut f, "{}", self.blocks.len());
+        for b in &self.blocks {
+            writeln!(&mut f, "{} {} {} {} {}", b.tag, b.x, b.y, b.h, b.w);
+        }
+    }
     pub fn postscript(&self, filename: &String, legalization: &Vec<LegalPosition>) {
         let mut pst = pstools::PSTool::new();
 
@@ -197,10 +208,10 @@ impl LegalProblem {
 
 
         pst.set_color(0.0, 0.0, 0.0, 1.0);
-        pst.set_font(24.0, "Courier".to_string());
-        pst.add_text(ox + 20.0, ury - 20.0, format!("Displace: {}", displace));
+        pst.set_font(28.0, "Courier".to_string());
+        pst.add_text(ox + 20.0, ury - 20.0, format!("Displace: {:10.1}", displace));
         pst.add_text(ox + 20.0, ury - 50.0, format!("Max displace: {:6.1}", maxdisplace));
-
+        pst.add_text(ox + 20.0, ury - 80.0, format!("Avg displace: {:6.1}", displace / self.blocks.len() as f32));
 /* 
         // Draw legalized positions in blue (on top of the lines)
         pst.set_color(0.2, 0.2, 0.8, 1.0);

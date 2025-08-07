@@ -49,6 +49,7 @@ struct HcwtRowPair {
     pub hard_max: f32,
     pub delta: f32,
     pub upper_weight: f32,
+    pub upper_horizontal_weight: f32,
     pub upper: Vec<LegalBlock>,
     pub lower: Vec<LegalBlock>,
 }
@@ -171,7 +172,7 @@ fn generate(hcwt: &HCwT<Context,Option,Node>, context: &mut Context, level: usiz
         dy = context.rowpair.y0 - block.y;
         new_node.lower += block.w;
         new_node.decision = true;
-        new_node.cost += dx*dx*10.0 + dy*dy; // Penalize horizontal shifts more?
+        new_node.cost += dx*dx + dy*dy; // Penalize horizontal shifts more?
         // new_node.cost += (dx*dx*dx).abs() + (dy*dy*dy).abs();
         // new_node.cost += (dx + dy).abs();
     } else {
@@ -180,7 +181,7 @@ fn generate(hcwt: &HCwT<Context,Option,Node>, context: &mut Context, level: usiz
         new_node.upper += block.w;
         new_node.decision = false;
         // Slightly less penalty for movement in the upper row
-        new_node.cost += (dx*dx + dy*dy) * context.rowpair.upper_weight;
+        new_node.cost += (dx*dx*context.rowpair.upper_horizontal_weight + dy*dy) * context.rowpair.upper_weight;
         // new_node.cost += ((dx*dx*dx).abs() + (dy*dy*dy).abs()) * context.rowpair.upper_weight;
         // new_node.cost += (dx + dy).abs();        
     }
@@ -271,11 +272,12 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
             blocks: Vec::new(),
             x: lp.params.origin_x,
             y0: lp.params.origin_y + row_num as f32 * lp.params.step_y,
-            y1: lp.params.origin_y + (row_num + 3) as f32 * lp.params.step_y,
+            y1: lp.params.origin_y + (row_num + 2) as f32 * lp.params.step_y,
             length: row_target,
             hard_max: row_target + avg_cell * 10.0,
             delta: avg_cell * 15.0,
-            upper_weight: 1.0,
+            upper_weight: 0.8,
+            upper_horizontal_weight: 0.1,
             upper: Vec::new(),
             lower: Vec::new(),
         };
@@ -287,11 +289,12 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
         }
         rowpair.blocks.sort_by(|a, b| legal_block_cmp_x(a, b));
 
-        // println!("Row {}", row_num);
-        // pack_row(&mut rowpair);
+        // If we're near the last row, put the horizontal displacement up, because we're not
+        // going to be able to recover
+        if row_num >= lp.params.grid_y - 2 {
+            rowpair.upper_horizontal_weight = 0.6;
+        }
         pack_row_hcwt(&mut rowpair);
-
-
 
         // Lower row gets packed, upper row goes back into the hopper
         let mut x = lp.params.origin_x;
