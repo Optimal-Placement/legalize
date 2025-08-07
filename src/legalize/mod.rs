@@ -156,7 +156,7 @@ impl LegalProblem {
         writeln!(&mut f, "{} {} {} {} {} {}", self.params.grid_x, self.params.grid_y, self.params.origin_x, self.params.origin_y, self.params.step_x, self.params.step_y);
         writeln!(&mut f, "{}", self.blocks.len());
         for b in &self.blocks {
-            writeln!(&mut f, "{} {} {} {} {}", b.tag, b.x, b.y, b.h, b.w);
+            writeln!(&mut f, "{} {} {} {} {}", b.tag, b.x, b.y, b.w, b.h);
         }
     }
     pub fn postscript(&self, filename: &String, legalization: &Vec<LegalPosition>) {
