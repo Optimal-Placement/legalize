@@ -37,7 +37,7 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
     let target = total_width as f32 / nr as f32 + 0.5;
 
     let mut positions = Vec::new();
-    
+
     let mut row = Vec::new();
     let mut rn = 0.0;
 
@@ -58,6 +58,4 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
     make_row(&mut row, rn * lp.params.step_y, &mut positions);
 
     positions
-
-
 }

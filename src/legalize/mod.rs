@@ -7,8 +7,8 @@
 // of cells from a BookshelfCircuit, for example).
 //
 pub mod hcwt_legal;
-pub mod tetris;
 pub mod rowfill;
+pub mod tetris;
 
 use scan_fmt::scan_fmt;
 use std::fs::File;
@@ -32,7 +32,7 @@ pub enum LegalKind {
 #[derive(Copy, Clone)]
 pub struct LegalPosition {
     pub block_tag: usize, // Refers to the index of a LegalBlock
-    pub x: f32,       // Legalized position XY, lower left corner
+    pub x: f32,           // Legalized position XY, lower left corner
     pub y: f32,
     pub h: f32,
     pub w: f32,
@@ -79,9 +79,7 @@ impl PartialEq for LegalBlock {
     }
 }
 
-impl Eq for LegalBlock {
-
-}
+impl Eq for LegalBlock {}
 
 #[derive(Copy, Clone)]
 pub struct LegalParams {
@@ -93,7 +91,6 @@ pub struct LegalParams {
     pub step_y: f32,
     pub alpha_right: f32,
     pub alpha_left: f32,
-
 }
 
 #[derive(Clone)]
@@ -107,24 +104,41 @@ pub fn load(filename: &String) -> LegalProblem {
     let mut reader = BufReader::with_capacity(32000, f);
 
     let line = getline(&mut reader).unwrap();
-    let (gx, gy, ox, oy, sx, sy) = scan_fmt!(&line, "{} {} {} {} {} {}", usize, usize, f32, f32, f32, f32).unwrap();
+    let (gx, gy, ox, oy, sx, sy) =
+        scan_fmt!(&line, "{} {} {} {} {} {}", usize, usize, f32, f32, f32, f32).unwrap();
 
     let mut lp = LegalProblem {
         blocks: Vec::new(),
-        params: LegalParams { grid_x: gx, grid_y: gy, origin_x: ox, origin_y: oy, step_x: sx, step_y: sy , alpha_right: 2.0 , alpha_left :0.5},
+        params: LegalParams {
+            grid_x: gx,
+            grid_y: gy,
+            origin_x: ox,
+            origin_y: oy,
+            step_x: sx,
+            step_y: sy,
+            alpha_right: 2.0,
+            alpha_left: 0.5,
+        },
     };
-    
+
     let line = getline(&mut reader).unwrap();
     let (num_blocks) = scan_fmt!(&line, "{}", usize).unwrap();
     for _i in 0..num_blocks {
         let line = getline(&mut reader).unwrap();
-        let (tag, x, y, w, h) = scan_fmt!(&line, "{} {} {} {} {}", usize, f32, f32, f32, f32).unwrap();
-        lp.blocks.push(LegalBlock { tag: tag, x: x, y: y, h: h, w: w });
+        let (tag, x, y, w, h) =
+            scan_fmt!(&line, "{} {} {} {} {}", usize, f32, f32, f32, f32).unwrap();
+        lp.blocks.push(LegalBlock {
+            tag: tag,
+            x: x,
+            y: y,
+            h: h,
+            w: w,
+        });
     }
 
     lp
 }
-/* 
+/*
 impl LegalProblem {
     pub fn postscript(&self, filename: &String, legalization: Vec<LegalPosition>) {
         // let mut pst = pstools_r::pstools_r::PS
@@ -148,12 +162,21 @@ impl LegalProblem {
 */
 
 impl LegalProblem {
-    pub fn save(&self, filepath: &String){
+    pub fn save(&self, filepath: &String) {
         let mut f;
 
         // if the file path is empty, just print to standard out
         f = Box::new(File::create(filepath).unwrap()) as Box<dyn Write>;
-        writeln!(&mut f, "{} {} {} {} {} {}", self.params.grid_x, self.params.grid_y, self.params.origin_x, self.params.origin_y, self.params.step_x, self.params.step_y);
+        writeln!(
+            &mut f,
+            "{} {} {} {} {} {}",
+            self.params.grid_x,
+            self.params.grid_y,
+            self.params.origin_x,
+            self.params.origin_y,
+            self.params.step_x,
+            self.params.step_y
+        );
         writeln!(&mut f, "{}", self.blocks.len());
         for b in &self.blocks {
             writeln!(&mut f, "{} {} {} {} {}", b.tag, b.x, b.y, b.w, b.h);
@@ -169,7 +192,6 @@ impl LegalProblem {
         let ury = oy + self.params.step_y * self.params.grid_y as f32;
         pst.add_box(ox, oy, urx, ury);
 
- 
         // Draw displacement lines in red first (underneath the blocks)
         pst.set_color(1.0, 0.0, 0.0, 1.0);
         let mut displace = 0.0;
@@ -183,7 +205,8 @@ impl LegalProblem {
                 let orig_center_y = block.original_y + block.h / 2.0;
                 let legal_center_x = block.x + block.w / 2.0;
                 let legal_center_y = block.y + block.h / 2.0;
-                let d = (orig_center_x - legal_center_x).abs() + (orig_center_y - legal_center_y).abs();
+                let d =
+                    (orig_center_x - legal_center_x).abs() + (orig_center_y - legal_center_y).abs();
                 displace += d;
                 if d > maxdisplace {
                     maxdisplace = d;
@@ -191,7 +214,6 @@ impl LegalProblem {
                 pst.add_line(orig_center_x, orig_center_y, legal_center_x, legal_center_y);
             }
         }
-
 
         pst.set_font(4.0, "Courier".to_string());
         // Use legalized coordinates instead of original coordinates
@@ -202,30 +224,45 @@ impl LegalProblem {
                 // let block = &self.blocks[pos.block_tag];
                 // Use the legalized coordinates (pos.x, pos.y)
                 pst.add_box(block.x, block.y, block.x + block.w, block.y + block.h);
-                pst.add_text(block.x + block.w/2.0, block.y + block.h/2.0, format!("{}", block.block_tag));
+                pst.add_text(
+                    block.x + block.w / 2.0,
+                    block.y + block.h / 2.0,
+                    format!("{}", block.block_tag),
+                );
             }
         }
 
-
         pst.set_color(0.0, 0.0, 0.0, 1.0);
-        pst.set_font(28.0, "Courier".to_string());
-        pst.add_text(ox + 20.0, ury - 20.0, format!("Displace: {:10.1}", displace));
-        pst.add_text(ox + 20.0, ury - 50.0, format!("Max displace: {:6.1}", maxdisplace));
-        pst.add_text(ox + 20.0, ury - 80.0, format!("Avg displace: {:6.1}", displace / self.blocks.len() as f32));
-/* 
-        // Draw legalized positions in blue (on top of the lines)
-        pst.set_color(0.2, 0.2, 0.8, 1.0);
-        for pos in legalization {
-            if let Some(block) = self.blocks.iter().find(|b| b.tag == pos.block) {
-                pst.add_box(pos.x, pos.y, pos.x + block.w, pos.y + block.h);
-            }
-        }        
-*/
+        pst.set_font(20.0, "Courier".to_string());
+        pst.add_text(
+            ox + 20.0,
+            ury - 20.0,
+            format!("Displace: {:10.1}", displace),
+        );
+        pst.add_text(
+            ox + 20.0,
+            ury - 50.0,
+            format!("Max displace: {:6.1}", maxdisplace),
+        );
+        pst.add_text(
+            ox + 20.0,
+            ury - 80.0,
+            format!("Avg displace: {:6.1}", displace / self.blocks.len() as f32),
+        );
+        /*
+                // Draw legalized positions in blue (on top of the lines)
+                pst.set_color(0.2, 0.2, 0.8, 1.0);
+                for pos in legalization {
+                    if let Some(block) = self.blocks.iter().find(|b| b.tag == pos.block) {
+                        pst.add_box(pos.x, pos.y, pos.x + block.w, pos.y + block.h);
+                    }
+                }
+        */
         pst.set_border(self.params.step_y * 2.0);
         pst.generate(filename.clone());
     }
 
-    pub fn postscript_fixed(&self, filename:&String) {
+    pub fn postscript_fixed(&self, filename: &String) {
         let mut pst = pstools::PSTool::new();
 
         // Draw the border
@@ -242,14 +279,18 @@ impl LegalProblem {
             // if let Some(block) = self.blocks.iter().find(|b| b.tag == pos.block) {
             {
                 pst.add_box(block.x, block.y, block.x + block.w, block.y + block.h);
-                pst.add_text(block.x + block.w/2.0, block.y + block.h/2.0, format!("{}", block.tag));
+                pst.add_text(
+                    block.x + block.w / 2.0,
+                    block.y + block.h / 2.0,
+                    format!("{}", block.tag),
+                );
             }
         }
         pst.generate(filename.clone());
     }
 
     pub fn new() -> LegalProblem {
-        LegalProblem{
+        LegalProblem {
             blocks: Vec::new(),
             params: LegalParams {
                 grid_x: 0,
@@ -260,7 +301,7 @@ impl LegalProblem {
                 step_y: 1.0,
                 alpha_left: 0.0,
                 alpha_right: 0.0,
-            }
+            },
         }
     }
 
@@ -337,7 +378,6 @@ impl LegalProblem {
         self.mirror_y();
     }
 }
-
 
 fn getline(reader: &mut BufReader<File>) -> std::io::Result<String> {
     loop {

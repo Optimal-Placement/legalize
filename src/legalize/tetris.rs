@@ -1,5 +1,5 @@
-use bookshelf_r::bookshelf::BookshelfCircuit;
 use super::{LegalBlock, LegalParams, LegalPosition, LegalProblem};
+use bookshelf_r::bookshelf::BookshelfCircuit;
 
 pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
     //println!("Tetris placement legalizer"); // (optimized with directional cost)
@@ -19,14 +19,14 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
     // Direction-sensitive cost factor
     //const ALPHA_RIGHT: f32 = 2.0; // Penalty factor for moving to the right (higher)
     //const ALPHA_LEFT: f32 = 0.5;  // The reward factor for moving left (lower)
-    const BETA: f32 = 0.5;         // Row congestion penalty coefficient
+    const BETA: f32 = 0.5; // Row congestion penalty coefficient
 
     //Go through each block and find the best place to put it
     for block in &blocks {
         // Modified: Use ceil() to calculate required rows and ensure minimum 1 row
         let block_rows = (block.h / params.step_y).ceil() as usize;
         let block_rows = block_rows.max(1); // Ensure at least 1 row
-        
+
         // Modified: Dynamic search range calculation with floor() for safety
         let best_row = ((block.y - params.origin_y) / params.step_y).floor() as usize;
         let search_radius = (5 * params.grid_y / 100).max(5); // At least 5 rows or 5% of total
@@ -40,7 +40,8 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
         for row in low_row..=high_row {
             // Modified: Safer multi-row left edge calculation
             let row_range = row..(row + block_rows);
-            let left = row_range.clone()
+            let left = row_range
+                .clone()
                 .map(|r| left_edges.get(r).unwrap_or(&params.origin_x))
                 .fold(params.origin_x, |a, &b| a.max(b));
 
@@ -49,16 +50,16 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
 
             // Original direction-sensitive cost calculation
             let delta_x = left - block.x;
-            let alpha = if delta_x > 0.0 { 
-                params.alpha_right  // Move right penalty
-            } else { 
-                params.alpha_left  // Move Left Reward
+            let alpha = if delta_x > 0.0 {
+                params.alpha_right // Move right penalty
+            } else {
+                params.alpha_left // Move Left Reward
             };
 
             // Modified: Improved Y-displacement calculation considering height
             let placed_y = params.origin_y + row as f32 * params.step_y;
-            let delta_y = (block.y - placed_y).abs() + 
-                          (block.h - (block_rows as f32 * params.step_y)).abs() * 0.1;
+            let delta_y = (block.y - placed_y).abs()
+                + (block.h - (block_rows as f32 * params.step_y)).abs() * 0.1;
 
             let row_crowding = dynamic_beta * (row_usage[row] as f32);
             let cost = delta_y + alpha * delta_x.abs() + row_crowding;
@@ -74,7 +75,9 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
         assert!(
             best_row + block_rows <= params.grid_y,
             "Vertical placement out of bounds for block {} (required rows: {}, available: {})",
-            block.tag, block_rows, params.grid_y - best_row
+            block.tag,
+            block_rows,
+            params.grid_y - best_row
         );
 
         // Record legalization location
@@ -120,7 +123,8 @@ pub fn legalize_floorplan(lp: &LegalProblem) -> Vec<LegalPosition> {
 
     //find index of a y value in y_points
     let find_y_index = |y: f32| -> usize {
-        y_points.binary_search_by(|probe| probe.partial_cmp(&y).unwrap())
+        y_points
+            .binary_search_by(|probe| probe.partial_cmp(&y).unwrap())
             .unwrap_or_else(|i| i.saturating_sub(1))
     };
 
@@ -163,7 +167,6 @@ pub fn legalize_floorplan(lp: &LegalProblem) -> Vec<LegalPosition> {
 }
 
 pub fn legalize_standard(lp: &LegalProblem) -> Vec<LegalPosition> {
-
     let mut blocks = lp.blocks.clone();
     let params = &lp.params;
 
@@ -184,7 +187,7 @@ pub fn legalize_standard(lp: &LegalProblem) -> Vec<LegalPosition> {
         let mut accumulated_width = 0.0;
         let mut i = 0;
 
-        //select total width ≈ W 
+        //select total width ≈ W
         while i < unplaced.len() {
             let cell = &unplaced[i];
             if accumulated_width + cell.w <= target_row_width * 1.1 {
@@ -199,7 +202,7 @@ pub fn legalize_standard(lp: &LegalProblem) -> Vec<LegalPosition> {
             }
         }
 
-        //sort by X & place 
+        //sort by X & place
         row_blocks.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
 
         let mut current_x = params.origin_x;
@@ -223,4 +226,3 @@ pub fn legalize_standard(lp: &LegalProblem) -> Vec<LegalPosition> {
 
     legal_positions
 }
-
