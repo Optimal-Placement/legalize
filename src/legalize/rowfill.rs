@@ -48,6 +48,7 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
             make_row(&mut row, rn * lp.params.step_y, &mut positions);
             width = 0.0;
             rn += 1.0;
+            #[cfg(feature="ldbg")]
             println!("Made row for {rn}");
             row = Vec::new();
         }

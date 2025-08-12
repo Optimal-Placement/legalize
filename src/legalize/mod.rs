@@ -176,10 +176,10 @@ impl LegalProblem {
             self.params.origin_y,
             self.params.step_x,
             self.params.step_y
-        );
-        writeln!(&mut f, "{}", self.blocks.len());
+        ).unwrap();
+        writeln!(&mut f, "{}", self.blocks.len()).unwrap();
         for b in &self.blocks {
-            writeln!(&mut f, "{} {} {} {} {}", b.tag, b.x, b.y, b.w, b.h);
+            writeln!(&mut f, "{} {} {} {} {}", b.tag, b.x, b.y, b.w, b.h).unwrap();
         }
     }
     pub fn postscript(&self, filename: &String, legalization: &Vec<LegalPosition>) {
