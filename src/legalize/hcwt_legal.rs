@@ -109,7 +109,7 @@ fn pack_row_hcwt(rowpair: &mut HcwtRowPair) {
         for b in &rowpair.blocks {
             rowpair.lower.push(*b);
         }
-        println!("HARDMAX quick pack");
+        // println!("HARDMAX quick pack");
         return;
     }
 
@@ -544,7 +544,7 @@ fn legalize_mixed(lp: &LegalProblem) -> Vec<LegalPosition> {
             pack_row_hcwt(&mut rowpair);
             let mut x = p.start;
             for block in rowpair.lower {
-                println!("  Block {} to {}", block.tag, x);
+                // println!("  Block {} to {}", block.tag, x);
                 legal_positions.push(LegalPosition {
                     block_tag: block.tag,
                     x,
