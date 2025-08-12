@@ -340,6 +340,7 @@ fn make_pools(row: &Row, end_row: f32) -> Vec<Pool> {
     }
 
     // println!("Row----");
+    #[cfg(feature = "ldbg")]
     for p in &pools {
         println!("Pool: {} to {}, target {}", p.start, p.stop, p.target);
     }
@@ -373,6 +374,7 @@ fn add_to_pool(pools: &mut Vec<Pool>, block: &LegalBlock) {
             best_dist = d;
         }
     }
+    #[cfg(feature = "ldbg")]
     println!(
         "Add block {} with width {} to pool {} distance {} target {}",
         block.tag, block.w, best_pool, best_dist, pools[best_pool].target
@@ -393,6 +395,7 @@ fn snap_macros(
     let deadband = 2.0 * lp.params.step_y;
 
     for block in macros {
+        #[cfg(feature = "ldbg")]
         println!("Snap block {}", block.tag);
         let original_x = block.x;
         let original_y = block.y;
@@ -418,19 +421,23 @@ fn snap_macros(
 
         // Snap to the boundaries if close
         if right - (lblock.x + lblock.w) < deadband {
+            #[cfg(feature = "ldbg")]
             println!("Snap block {} right because of deadband.", block.tag);
             lblock.x = right - lblock.w;
         }
         if lblock.x < deadband {
+            #[cfg(feature = "ldbg")]
             println!("Snap block {} left because of deadband.", block.tag);
             lblock.x = 0.0;
         }
 
         if top - (lblock.y + lblock.h) < deadband {
+            #[cfg(feature = "ldbg")]
             println!("Snap block {} up because of deadband.", block.tag);
             lblock.y = top - lblock.h;
         }
         if lblock.y < deadband {
+            #[cfg(feature = "ldbg")]
             println!("Snap block {} down because of deadband.", block.tag);
             lblock.y = 0.0;
         }
@@ -444,6 +451,7 @@ fn snap_macros(
             original_x,
             original_y,
         });
+        #[cfg(feature = "ldbg")]
         println!(
             "Shift {} from {} {} to {} {}",
             block.tag, block.x, block.y, lblock.x, lblock.y
@@ -454,6 +462,7 @@ fn snap_macros(
 }
 
 fn legalize_mixed(lp: &LegalProblem) -> Vec<LegalPosition> {
+    #[cfg(feature = "ldbg")]
     println!("SPECIAL MIXED HCWT");
     let mut legal_positions = Vec::new();
     // Find out exactly how much area we're using
@@ -462,6 +471,7 @@ fn legalize_mixed(lp: &LegalProblem) -> Vec<LegalPosition> {
         area += block.h * block.w;
     }
     let target = (area / (lp.params.grid_y as f32 * lp.params.step_y)).round();
+    #[cfg(feature = "ldbg")]
     println!("Target {} in each row", target);
 
     // Heap will contain only the standard cells
@@ -502,12 +512,14 @@ fn legalize_mixed(lp: &LegalProblem) -> Vec<LegalPosition> {
                 start: mb.x,
                 end: mb.x + mb.w,
             });
+            #[cfg(feature = "ldbg")]
             println!("Block {} uses row {}, consumes {}", mb.tag, row, mb.w);
         }
     }
     for row in 0..lp.params.grid_y {
         rows[row].blockages.sort_by(|a, b| block_compare(&a, &b));
         // Fill the pools
+        #[cfg(feature = "ldbg")]
         println!("Row {}", row);
         let mut pools = make_pools(&rows[row], target);
         let mut fill = 0.0;
@@ -526,6 +538,7 @@ fn legalize_mixed(lp: &LegalProblem) -> Vec<LegalPosition> {
 
         // Now run HCwT for each pool
         for p in &pools {
+            #[cfg(feature = "ldbg")]
             println!("POOL {} to {}", p.start, p.stop);
             let mut rowpair = HcwtRowPair {
                 blocks: p.blocks.clone(),
@@ -565,13 +578,18 @@ fn legalize_mixed(lp: &LegalProblem) -> Vec<LegalPosition> {
     }
 
     if legal_positions.len() != lp.blocks.len() {
-        println!("Incorrect number of blocks legalized {} vs {}", legal_positions.len(), lp.blocks.len());
+        println!(
+            "Incorrect number of blocks legalized {} vs {}",
+            legal_positions.len(),
+            lp.blocks.len()
+        );
         println!("Heap has {} entries", bhp.len());
     }
 
     legal_positions
 }
 pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
+    #[cfg(feature = "ldbg")]
     println!("HCWT placement legalizer");
     // See if we have any macro blocks -- if so, we need to use the mixed legalizer
     for block in &lp.blocks {
@@ -599,6 +617,7 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
     let target = total_length / lp.params.grid_y as f32;
     let avg_cell = total_length / lp.blocks.len() as f32;
 
+    #[cfg(feature = "ldbg")]
     println!(
         "Total length: {}  row length: {}  average cell width {}",
         total_length,
