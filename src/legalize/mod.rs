@@ -196,6 +196,8 @@ impl LegalProblem {
         pst.set_color(1.0, 0.0, 0.0, 1.0);
         let mut displace = 0.0;
         let mut maxdisplace = 0.0;
+        let mut maxdisplace_block = None;
+
         for block in legalization {
             // if let Some(block) = self.blocks.iter().find(|b| b.tag == pos.block) {
             // let block = &self.blocks[pos.block_tag];
@@ -210,6 +212,8 @@ impl LegalProblem {
                 displace += d;
                 if d > maxdisplace {
                     maxdisplace = d;
+                    maxdisplace_block = Some(block);
+                    // println!("Block tag {} displace {}", block.block_tag, maxdisplace);
                 }
                 pst.add_line(orig_center_x, orig_center_y, legal_center_x, legal_center_y);
             }
@@ -249,6 +253,18 @@ impl LegalProblem {
             ury - 80.0,
             format!("Avg displace: {:6.1}", displace / self.blocks.len() as f32),
         );
+
+        if maxdisplace_block.is_some() {
+            let block = maxdisplace_block.unwrap();
+            // pst.set_fill(true);
+            // pst.set_color(0.5, 0.1, 0.1, 1.0);
+            let border = self.params.step_y / 2.0;
+            pst.add_box(block.x - border, block.y - border, block.x + block.w + border, block.y + block.h + border);
+            let border = self.params.step_y / 1.5;
+            pst.add_box(block.x - border, block.y - border, block.x + block.w + border, block.y + block.h + border);
+
+        }
+
         /*
                 // Draw legalized positions in blue (on top of the lines)
                 pst.set_color(0.2, 0.2, 0.8, 1.0);
@@ -337,6 +353,35 @@ impl LegalProblem {
         for block in &mut self.blocks {
             block.x -= dx;
             block.y -= dy;
+        }
+    }
+    pub fn area(&self) -> f32 {
+        let mut total_area = 0.0;
+        for block in &self.blocks {
+            total_area += block.h * block.w;
+        }
+        total_area
+    }
+    pub fn rescale(&mut self) {
+        // Determine total area
+        let total_area = self.area();
+        let target_width = total_area / ((self.params.grid_y as f32)*self.params.step_y);
+
+        let bbox = self.bounds();
+        let scale_x = target_width / bbox.dx();
+        let target_height = self.params.grid_y as f32 * self.params.step_y;
+
+        let scale_y = target_height / bbox.dy();
+        #[cfg(feature="ldbg")]
+        {
+            println!("Rescale {} {} to {} {}", bbox.dx(), bbox.dy(), target_width, target_height);
+            println!("Scale_x {} scale_y {}", scale_x, scale_y);
+        }
+
+        for block in &mut self.blocks {
+            // New XY location
+            block.x = block.x * scale_x;
+            block.y = block.y * scale_y;
         }
     }
     pub fn mirror_x(&mut self) {

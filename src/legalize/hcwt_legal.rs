@@ -181,19 +181,20 @@ fn generate(
     if detail.row == 0 {
         dx = new_node.lower - block.x;
         dy = context.rowpair.y0 - block.y;
+        let delta_cost = (dx * dx + dy * dy) * block.w;
+
         new_node.lower += block.w;
         new_node.decision = true;
-        new_node.cost += dx * dx + dy * dy; // Penalize horizontal shifts more?
-                                            // new_node.cost += (dx*dx*dx).abs() + (dy*dy*dy).abs();
-                                            // new_node.cost += (dx + dy).abs();
+        new_node.cost += delta_cost;
     } else {
-        dx = new_node.upper - block.x;
+        dx = (new_node.upper - block.x) * context.rowpair.upper_horizontal_weight;
         dy = context.rowpair.y1 - block.y;
+        let delta_cost = (dx * dx + dy * dy) * block.w;
         new_node.upper += block.w;
         new_node.decision = false;
+
         // Slightly less penalty for movement in the upper row
-        new_node.cost += (dx * dx * context.rowpair.upper_horizontal_weight + dy * dy)
-            * context.rowpair.upper_weight;
+        new_node.cost += delta_cost * context.rowpair.upper_weight;
         // new_node.cost += ((dx*dx*dx).abs() + (dy*dy*dy).abs()) * context.rowpair.upper_weight;
         // new_node.cost += (dx + dy).abs();
     }
