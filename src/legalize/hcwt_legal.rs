@@ -109,7 +109,7 @@ fn pack_row_hcwt(rowpair: &mut HcwtRowPair) {
         for b in &rowpair.blocks {
             rowpair.lower.push(*b);
         }
-        // println!("HARDMAX quick pack");
+        println!("HARDMAX quick pack of {}", len);
         return;
     }
 
@@ -471,9 +471,10 @@ fn legalize_mixed(lp: &LegalProblem) -> Vec<LegalPosition> {
     for block in &lp.blocks {
         area += block.h * block.w;
     }
-    let target = (area / (lp.params.grid_y as f32 * lp.params.step_y)).round();
+    //let target = (area / (lp.params.grid_y as f32 * lp.params.step_y)).round();
+    let target = area / (lp.params.grid_y as f32 * lp.params.step_y);
     #[cfg(feature = "ldbg")]
-    println!("Target {} in each row", target);
+    println!("Target {:.1} in each row", target);
 
     // Heap will contain only the standard cells
     let mut bhp = binary_heap_plus::BinaryHeap::new_by(|a: &LegalBlock, b: &LegalBlock| {
@@ -481,13 +482,14 @@ fn legalize_mixed(lp: &LegalProblem) -> Vec<LegalPosition> {
     });
 
     let mut macros = Vec::new();
-
+    let mut pool_supply = 0.0;
     // Find the macro blocks, put cells into the heap
     for block in &lp.blocks {
         if block.h > lp.params.step_y {
             macros.push(*block);
         } else {
             bhp.push(*block);
+            pool_supply += block.w;
         }
     }
     snap_macros(lp, target, &mut macros, &mut legal_positions);
@@ -520,13 +522,13 @@ fn legalize_mixed(lp: &LegalProblem) -> Vec<LegalPosition> {
     for row in 0..lp.params.grid_y {
         rows[row].blockages.sort_by(|a, b| block_compare(&a, &b));
         // Fill the pools
-        #[cfg(feature = "ldbg")]
-        println!("Row {}", row);
         let mut pools = make_pools(&rows[row], target);
         let mut fill = 0.0;
         for p in &pools {
             fill += p.target;
         }
+        #[cfg(feature = "ldbg")]
+        println!("Row {} target fill {} pool has {}", row, fill, pool_supply);
         fill = fill * 2.0;
         let mut taken = 0.0;
 
@@ -536,11 +538,12 @@ fn legalize_mixed(lp: &LegalProblem) -> Vec<LegalPosition> {
             taken += block.w;
             add_to_pool(&mut pools, &block);
         }
+        pool_supply -= taken;
 
         // Now run HCwT for each pool
         for p in &pools {
             #[cfg(feature = "ldbg")]
-            println!("POOL {} to {}", p.start, p.stop);
+            println!("POOL {} to {} target {} fill {} pool_supply {}", p.start, p.stop, p.target, p.filled, pool_supply);
             let mut rowpair = HcwtRowPair {
                 blocks: p.blocks.clone(),
                 x: p.start,
@@ -557,6 +560,7 @@ fn legalize_mixed(lp: &LegalProblem) -> Vec<LegalPosition> {
             rowpair.blocks.sort_by(|a, b| legal_block_cmp_x(a, b));
             pack_row_hcwt(&mut rowpair);
             let mut x = p.start;
+            let mut taken = 0.0;
             for block in rowpair.lower {
                 // println!("  Block {} to {}", block.tag, x);
                 legal_positions.push(LegalPosition {
@@ -569,10 +573,14 @@ fn legalize_mixed(lp: &LegalProblem) -> Vec<LegalPosition> {
                     original_y: block.y,
                 });
                 x += block.w;
+                taken += block.w;
                 // row_taken += block.w;
                 // total_taken += block.w;
             }
+            #[cfg(feature = "ldbg")]
+            println!("Row takes {}, target was {}", taken, p.target);
             for block in rowpair.upper {
+                pool_supply += block.w;
                 bhp.push(block);
             }
         }
@@ -580,9 +588,10 @@ fn legalize_mixed(lp: &LegalProblem) -> Vec<LegalPosition> {
 
     if legal_positions.len() != lp.blocks.len() {
         println!(
-            "Incorrect number of blocks legalized {} vs {}",
+            "Incorrect number of blocks legalized {} vs {}  Target was {} rows width {}",
             legal_positions.len(),
-            lp.blocks.len()
+            lp.blocks.len(),
+            lp.params.grid_y, target
         );
         println!("Heap has {} entries", bhp.len());
     }
