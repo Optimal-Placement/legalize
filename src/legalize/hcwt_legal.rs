@@ -109,6 +109,7 @@ fn pack_row_hcwt(rowpair: &mut HcwtRowPair) {
         for b in &rowpair.blocks {
             rowpair.lower.push(*b);
         }
+        #[cfg(feature="ldbg")]
         println!("HARDMAX quick pack of {}", len);
         return;
     }
@@ -557,6 +558,9 @@ fn legalize_mixed(lp: &LegalProblem) -> Vec<LegalPosition> {
                 upper: Vec::new(),
                 lower: Vec::new(),
             };
+            if row == lp.params.grid_y - 1 {
+                rowpair.hard_max += 1000.0;
+            }
             rowpair.blocks.sort_by(|a, b| legal_block_cmp_x(a, b));
             pack_row_hcwt(&mut rowpair);
             let mut x = p.start;
@@ -588,15 +592,18 @@ fn legalize_mixed(lp: &LegalProblem) -> Vec<LegalPosition> {
 
     if legal_positions.len() != lp.blocks.len() {
         println!(
-            "Incorrect number of blocks legalized {} vs {}  Target was {} rows width {}",
+            "**** Incorrect number of blocks legalized {} vs {}  Target was {} rows width {}",
             legal_positions.len(),
             lp.blocks.len(),
             lp.params.grid_y, target
         );
-        println!("Heap has {} entries", bhp.len());
+        println!("Heap has {} entries\n\n", bhp.len());
     }
-
-    legal_positions
+    // It's possible that a pool exceeded capacity, and overlaps a
+    // fixed macro block...  The compress step will take care of that
+    let compressed = lp.new_from(&legal_positions);
+    super::tetris::legalize_floorplan(&compressed)
+    // legal_positions
 }
 pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
     #[cfg(feature = "ldbg")]

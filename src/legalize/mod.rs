@@ -321,6 +321,17 @@ impl LegalProblem {
         }
     }
 
+    pub fn new_from(&self, positions: &Vec<LegalPosition>) -> LegalProblem {
+        let mut new_lp = self.clone();
+        
+        new_lp.blocks = Vec::new();
+        for pos in positions {
+            new_lp.blocks.push(LegalBlock { tag: pos.block_tag, x: pos.x, y: pos.y, h: pos.h, w: pos.w });
+        }        
+
+        new_lp
+    }
+
     pub fn move_blocks(&mut self, legalization: &Vec<LegalPosition>) {
         for pos in legalization {
             self.blocks[pos.block_tag].x = pos.x;
@@ -489,6 +500,7 @@ pub fn legalize_circuit(bc: &mut BookshelfCircuit, kind: LegalKind) {
     //     let result = hcwt_legal::legalize(&blocks, &params);
     // }
 }
+
 
 use std::fmt;
 
