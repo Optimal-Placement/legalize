@@ -254,6 +254,9 @@ fn filter(
             // println!("   x node {} length {}:{} cost {}", i, nodes[i].detail.lower, nodes[i].detail.upper, nodes[i].detail.cost);
         }
     }
+    if result.len() == 0 {
+        println!("Filtered {} nodes down to {}", nodes.len(), result.len());
+    }
 
     result
 }
@@ -525,6 +528,7 @@ fn legalize_mixed(lp: &LegalProblem) -> Vec<LegalPosition> {
         // Fill the pools
         let mut pools = make_pools(&rows[row], target);
         let mut fill = 0.0;
+        let mut widest = 0.0;
         for p in &pools {
             fill += p.target;
         }
@@ -537,6 +541,9 @@ fn legalize_mixed(lp: &LegalProblem) -> Vec<LegalPosition> {
         while !bhp.is_empty() && taken < fill {
             let block = bhp.pop().unwrap();
             taken += block.w;
+            if block.w > widest {
+                widest = block.w;
+            }
             add_to_pool(&mut pools, &block);
         }
         pool_supply -= taken;
@@ -552,7 +559,7 @@ fn legalize_mixed(lp: &LegalProblem) -> Vec<LegalPosition> {
                 y1: lp.params.origin_y + (row + 2) as f32 * lp.params.step_y,
                 length: p.target,
                 hard_max: p.target + 10.0,
-                delta: 50.0,
+                delta: widest * 4.0,
                 upper_weight: 0.8,
                 upper_horizontal_weight: 0.1,
                 upper: Vec::new(),
@@ -614,6 +621,8 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
             return legalize_mixed(lp);
         }
     }
+    println!("STANDARD CELL ONLY but we'll use the mixed legalize anyway");
+    return legalize_mixed(lp);
 
     let mut legal_positions = Vec::new();
 
