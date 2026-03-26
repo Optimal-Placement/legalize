@@ -102,5 +102,10 @@ pub fn legalize(lp: &LegalProblem) -> Vec<LegalPosition> {
         })
         .collect();
 
+        let groups = cut_problem(&lp, 2, 0.4, 0.6); // recursion depth 2，area ratio 40%-60%
+        for (i, group) in groups.iter().enumerate() {
+            println!("Group {}: {} blocks", i, group.blocks.len());
+        }
+
     legal_positions
 }

@@ -515,3 +515,313 @@ impl fmt::Display for LegalParams {
         )
     }
 }
+
+#[derive(Clone)]
+pub struct CutLineResult {
+    pub left_blocks: Vec<LegalBlock>,
+    pub right_blocks: Vec<LegalBlock>,
+    pub cut_x: f32,
+    pub left_area: f32,
+    pub right_area: f32,
+    pub penalty: f32,
+}
+
+pub fn find_optimal_cut_vertical(
+    blocks: &[LegalBlock],
+    min_ratio: f32,
+    max_ratio: f32,
+) -> Option<CutLineResult> {
+    if blocks.is_empty() {
+        return None;
+    }
+
+    // calculate the total area
+    let total_area: f32 = blocks.iter().map(|b| b.w * b.h).sum();
+    let min_area = total_area * min_ratio;
+    let max_area = total_area * max_ratio;
+
+    // create block(center info)
+    let mut blocks_with_center: Vec<(LegalBlock, f32)> = blocks
+        .iter()
+        .map(|b| {
+            let center_x = b.x + b.w / 2.0;
+            (b.clone(), center_x)
+        })
+        .collect();
+
+    // center point x sorting
+    blocks_with_center.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+
+    let mut best_result = None;
+    let mut best_penalty = f32::MAX;
+
+    // try cut at each bloch center
+    for i in 0..blocks_with_center.len() {
+        let cut_x = blocks_with_center[i].1;
+        
+        // left area
+        let mut left_blocks = Vec::new();
+        let mut right_blocks = Vec::new();
+        let mut left_area = 0.0;
+        let mut right_area = 0.0;
+        let mut cut_penalty = 0.0;
+
+        for (block, center_x) in &blocks_with_center {
+            if *center_x <= cut_x {
+                left_blocks.push(block.clone());
+                left_area += block.w * block.h;
+            } else {
+                right_blocks.push(block.clone());
+                right_area += block.w * block.h;
+            }
+        }
+
+        // check area
+        if left_area < min_area || left_area > max_area {
+            continue;
+        }
+
+        // calculate cutting penalty
+        for (block, center_x) in &blocks_with_center {
+            if *center_x <= cut_x && *center_x + block.w > cut_x {
+                // small area penalty
+                let left_part = cut_x - block.x;
+                let right_part = block.x + block.w - cut_x;
+                let smaller_part = left_part.min(right_part);
+                let penalty = smaller_part / block.w; // 
+                cut_penalty += penalty * (block.w * block.h); // 
+            } else if *center_x > cut_x && block.x < cut_x {
+                // 
+                let left_part = cut_x - block.x;
+                let right_part = block.x + block.w - cut_x;
+                let smaller_part = left_part.min(right_part);
+                let penalty = smaller_part / block.w;
+                cut_penalty += penalty * (block.w * block.h);
+            }
+        }
+
+        // total penalty
+        let area_imbalance = (left_area - right_area).abs() / total_area;
+        let total_penalty = cut_penalty + area_imbalance * total_area;
+
+        if total_penalty < best_penalty {
+            best_penalty = total_penalty;
+            best_result = Some(CutLineResult {
+                left_blocks,
+                right_blocks,
+                cut_x,
+                left_area,
+                right_area,
+                penalty: total_penalty,
+            });
+        }
+    }
+
+    best_result
+}
+
+
+
+pub fn recursive_bisection(
+    blocks: &[LegalBlock],
+    depth: usize,
+    max_depth: usize,
+    min_ratio: f32,
+    max_ratio: f32,
+) -> Vec<Vec<LegalBlock>> {
+    if depth >= max_depth || blocks.len() <= 1 {
+        return vec![blocks.to_vec()];
+    }
+
+    // try vertical cutting
+    if let Some(cut_result) = find_optimal_cut_vertical(blocks, min_ratio, max_ratio) {
+        let mut result = Vec::new();
+        
+        // recursion(left side)
+        result.extend(recursive_bisection(
+            &cut_result.left_blocks,
+            depth + 1,
+            max_depth,
+            min_ratio,
+            max_ratio,
+        ));
+        
+        // recursion(right side)
+        result.extend(recursive_bisection(
+            &cut_result.right_blocks,
+            depth + 1,
+            max_depth,
+            min_ratio,
+            max_ratio,
+        ));
+        
+        result
+    } else {
+        // if not find the suitable cutting, try horizontal
+        if let Some(cut_result) = find_optimal_cut_horizontal(blocks, min_ratio, max_ratio) {
+            let mut result = Vec::new();
+            
+            result.extend(recursive_bisection(
+                &cut_result.left_blocks, // bottom blocks
+                depth + 1,
+                max_depth,
+                min_ratio,
+                max_ratio,
+            ));
+            
+            result.extend(recursive_bisection(
+                &cut_result.right_blocks, // top blocks
+                depth + 1,
+                max_depth,
+                min_ratio,
+                max_ratio,
+            ));
+            
+            result
+        } else {
+            vec![blocks.to_vec()]
+        }
+    }
+}
+
+/// find the optimal position of the horizontal cutting line
+pub fn find_optimal_cut_horizontal(
+    blocks: &[LegalBlock],
+    min_ratio: f32,
+    max_ratio: f32,
+) -> Option<CutLineResult> {
+    if blocks.is_empty() {
+        return None;
+    }
+
+    let total_area: f32 = blocks.iter().map(|b| b.w * b.h).sum();
+    let min_area = total_area * min_ratio;
+    let max_area = total_area * max_ratio;
+
+    let mut blocks_with_center: Vec<(LegalBlock, f32)> = blocks
+        .iter()
+        .map(|b| {
+            let center_y = b.y + b.h / 2.0;
+            (b.clone(), center_y)
+        })
+        .collect();
+
+    blocks_with_center.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+
+    let mut best_result = None;
+    let mut best_penalty = f32::MAX;
+
+    for i in 0..blocks_with_center.len() {
+        let cut_y = blocks_with_center[i].1;
+        
+        let mut bottom_blocks = Vec::new();
+        let mut top_blocks = Vec::new();
+        let mut bottom_area = 0.0;
+        let mut top_area = 0.0;
+        let mut cut_penalty = 0.0;
+
+        for (block, center_y) in &blocks_with_center {
+            if *center_y <= cut_y {
+                bottom_blocks.push(block.clone());
+                bottom_area += block.w * block.h;
+            } else {
+                top_blocks.push(block.clone());
+                top_area += block.w * block.h;
+            }
+        }
+
+        if bottom_area < min_area || bottom_area > max_area {
+            continue;
+        }
+
+        // calculate cutting penalty
+        for (block, center_y) in &blocks_with_center {
+            if *center_y <= cut_y && *center_y + block.h > cut_y {
+                let bottom_part = cut_y - block.y;
+                let top_part = block.y + block.h - cut_y;
+                let smaller_part = bottom_part.min(top_part);
+                let penalty = smaller_part / block.h;
+                cut_penalty += penalty * (block.w * block.h);
+            } else if *center_y > cut_y && block.y < cut_y {
+                let bottom_part = cut_y - block.y;
+                let top_part = block.y + block.h - cut_y;
+                let smaller_part = bottom_part.min(top_part);
+                let penalty = smaller_part / block.h;
+                cut_penalty += penalty * (block.w * block.h);
+            }
+        }
+
+        let area_imbalance = (bottom_area - top_area).abs() / total_area;
+        let total_penalty = cut_penalty + area_imbalance * total_area;
+
+        if total_penalty < best_penalty {
+            best_penalty = total_penalty;
+            best_result = Some(CutLineResult {
+                left_blocks: bottom_blocks,
+                right_blocks: top_blocks,
+                cut_x: cut_y,
+                left_area: bottom_area,
+                right_area: top_area,
+                penalty: total_penalty,
+            });
+        }
+    }
+
+    best_result
+}
+
+/// convert the cutting results to LegalProblem format
+pub fn cut_problem(
+    lp: &LegalProblem,
+    max_depth: usize,
+    min_ratio: f32,
+    max_ratio: f32,
+) -> Vec<LegalProblem> {
+    let groups = recursive_bisection(&lp.blocks, 0, max_depth, min_ratio, max_ratio);
+    
+    groups
+        .into_iter()
+        .map(|blocks| {
+            let mut new_lp = lp.clone();
+            new_lp.blocks = blocks;
+            new_lp
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_find_optimal_cut() {
+        let blocks = vec![
+            LegalBlock { tag: 0, x: 0.0, y: 0.0, w: 10.0, h: 10.0 },
+            LegalBlock { tag: 1, x: 15.0, y: 0.0, w: 10.0, h: 10.0 },
+            LegalBlock { tag: 2, x: 30.0, y: 0.0, w: 10.0, h: 10.0 },
+        ];
+
+        let result = find_optimal_cut_vertical(&blocks, 0.4, 0.6);
+        assert!(result.is_some());
+        
+        let cut = result.unwrap();
+        assert_eq!(cut.left_blocks.len(), 2);
+        assert_eq!(cut.right_blocks.len(), 1);
+    }
+
+    #[test]
+    fn test_cut_penalty() {
+        // create a large block
+        let blocks = vec![
+            LegalBlock { tag: 0, x: 0.0, y: 0.0, w: 100.0, h: 10.0 }, // big block
+            LegalBlock { tag: 1, x: 120.0, y: 0.0, w: 10.0, h: 10.0 }, // small
+        ];
+
+        let result = find_optimal_cut_vertical(&blocks, 0.4, 0.6);
+        assert!(result.is_some());
+        
+        let cut = result.unwrap();
+        // cutting line avoid crossing large blocks, it might be cut to the right of the block
+        assert!(cut.cut_x > 100.0);
+    }
+}
