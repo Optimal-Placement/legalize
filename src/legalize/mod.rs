@@ -7,6 +7,7 @@
 // of cells from a BookshelfCircuit, for example).
 //
 pub mod hcwt_legal;
+pub mod hcwt_dp;
 pub mod rowfill;
 pub mod tetris;
 
