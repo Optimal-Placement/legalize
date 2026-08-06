@@ -2,6 +2,10 @@ use argh::FromArgs;
 #[derive(FromArgs)]
 /// Placement legalization
 struct Args {
+    /// recursive bisection
+    #[argh(switch, short = 'b')]
+    bisection: bool,
+
     /// tetris legalization
     #[argh(switch, short = 't')]
     tetris: bool,
@@ -31,9 +35,36 @@ struct Args {
     postscript: Option<String>,
 }
 
+/*
+fn grid_test() {
+    use legalize::legalize::{AreaCalculatorBuilder, CutCalculatorBuilder};
+
+    let mut acb = AreaCalculatorBuilder::new(0.0, 0.0, 1000.0, 1000.0, 1.0);
+    acb.add_block(100.0, 100.0, 900.0, 900.0);
+    acb.add_block(100.0, 100.0, 900.0, 900.0);
+
+    let area_calc = acb.build();
+
+    //println!("{}", area_calc.area(100.0, 100.0, 999.0, 999.0));
+
+    let mut ccb = CutCalculatorBuilder::new(0.0, 0.0, 200.0, 200.0, 10.0);
+    ccb.add_block(50.0, 50.0, 110.0, 100.0, 7500.0);
+
+    let cut_calc = ccb.build();
+    //println!("{}", cut_calc.grid_vertical);
+    //println!("{}", cut_calc.grid_horizontal);
+}
+*/
+
 fn main() {
+    //use std::process::exit;
+
+    //grid_test();
+
     println!("Stand-alone placement legalizer");
     let arguments: Args = argh::from_env();
+
+    legalize::legalize::draw_something();
 
     let mut lp;
     if arguments.file.is_some() {
@@ -41,6 +72,62 @@ fn main() {
     } else {
         println!("Must specify an input file");
         return;
+    }
+
+    println!(
+        "Min width: {}",
+        lp.blocks.iter().map(|b| b.w).min_by(|w1, w2| w1.total_cmp(w2)).unwrap(),
+    );
+
+    println!(
+        "Min height: {}",
+        lp.blocks.iter().map(|b| b.h).min_by(|h1, h2| h1.total_cmp(h2)).unwrap(),
+    );
+
+    println!(
+        "Avg width: {}",
+        lp.blocks.iter().map(|b| b.w).sum::<f32>() / lp.blocks.len() as f32,
+    );
+
+    println!(
+        "Avg height: {}",
+        lp.blocks.iter().map(|b| b.h).sum::<f32>() / lp.blocks.len() as f32,
+    );
+
+    println!("{} blocks in total", lp.blocks.len());
+
+    if arguments.bisection {
+        println!("Initializing area grid . . .");
+        let area_grid = legalize::legalize::AreaGrid::new(&lp.blocks, 0.1);
+
+        println!("Initializing cut grid . . .");
+        let cut_grid = legalize::legalize::CutGrid::new(&lp.blocks);
+
+        let regions = legalize::legalize::recursive_bisection(
+            &lp.blocks,
+            &legalize::legalize::no_direction_heuristic,
+            &cut_grid.center_cut_heuristic(),
+            Some(&mut legalize::legalize::original_penalty_heuristic(&area_grid, &cut_grid)),
+            &[],//&[&legalize::legalize::band_heuristic(0.99)],
+            /*&[&legalize::legalize::band_heuristic(0.9)],*/
+            &legalize::legalize::min_penalty_heuristic,
+            None,
+        );
+
+        /*
+        let counts: Vec<usize> = regions.iter().map(|v| v.blocks.len()).collect();
+        println!("Regions: ");
+        for c in counts {
+            print!("{} ", c);
+        }
+        println!();
+        */
+
+        legalize::legalize::draw_bisection(&lp.blocks, &regions, "goch_test_new.ps", (400.0, 600.0));
+
+        legalize::legalize::draw_blocks(&lp.blocks, "ibm01_blocks.ps", (400.0, 600.0));
+
+        legalize::legalize::print_tree(&regions);
     }
 
     if arguments.delta_row.is_some() {
@@ -53,9 +140,11 @@ fn main() {
     if arguments.tetris {
         legal = legalize::legalize::tetris::legalize(&lp);
     }
+    /*
     if arguments.hcwt {
         legal = legalize::legalize::hcwt_legal::legalize(&lp);
     }
+    */
     if arguments.rowfill {
         legal = legalize::legalize::rowfill::legalize(&lp);
     }

@@ -1,0 +1,827 @@
+// Legalizers will move LegalBlocks into legal positions,
+// returning a vector of LegalPosition indicating how things
+// should move.
+//
+// Input to legalizer is a vector of LegalBlocks -- with the tag
+// being used to refer back to the parent data structure (a subset
+// of cells from a BookshelfCircuit, for example).
+//
+//pub mod hcwt_legal;
+pub mod rowfill;
+pub mod tetris;
+
+use scan_fmt::scan_fmt;
+use std::fs::File;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::io::BufWriter;
+use std::io::Error;
+use std::io::ErrorKind;
+use std::io::Write;
+use std::path::Path;
+
+use bookshelf_r::bookshelf::BookshelfCircuit;
+use pstools;
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum LegalKind {
+    Tetris,
+    HCwT,
+}
+
+#[derive(Copy, Clone)]
+pub struct LegalPosition {
+    pub block_tag: usize, // Refers to the index of a LegalBlock
+    pub x: f32,           // Legalized position XY, lower left corner
+    pub y: f32,
+    pub h: f32,
+    pub w: f32,
+    pub original_x: f32,
+    pub original_y: f32,
+}
+
+pub fn bounds(blocks: &Vec<LegalPosition>) -> pstools::bbox::BBox {
+    let mut bb = pstools::bbox::BBox::new();
+    for b in blocks {
+        bb.addpoint(b.x, b.y);
+        bb.addpoint(b.x + b.w, b.y + b.h);
+    }
+
+    bb
+}
+
+// Convert
+#[derive(Copy, Clone)]
+pub struct LegalBlock {
+    pub tag: usize, // Refers to a parent data structure (Bookshelf cell for example)
+    pub x: f32,     // Preferred X and Y location, lower left corner
+    pub y: f32,
+    pub h: f32, // Height and width of the block
+    pub w: f32,
+}
+use std::cmp::Ordering;
+
+impl Ord for LegalBlock {
+    fn cmp(&self, &other: &Self) -> Ordering {
+        self.tag.cmp(&other.tag)
+    }
+}
+
+impl PartialOrd for LegalBlock {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for LegalBlock {
+    fn eq(&self, other: &LegalBlock) -> bool {
+        self.tag == other.tag
+    }
+}
+
+impl Eq for LegalBlock {}
+
+#[derive(Copy, Clone)]
+pub struct LegalParams {
+    pub grid_x: usize,
+    pub grid_y: usize,
+    pub origin_x: f32,
+    pub origin_y: f32,
+    pub step_x: f32,
+    pub step_y: f32,
+    pub alpha_right: f32,
+    pub alpha_left: f32,
+}
+
+#[derive(Clone)]
+pub struct LegalProblem {
+    pub blocks: Vec<LegalBlock>,
+    pub params: LegalParams,
+}
+
+pub fn load(filename: &String) -> LegalProblem {
+    let f = File::open(filename).unwrap();
+    let mut reader = BufReader::with_capacity(32000, f);
+
+    let line = getline(&mut reader).unwrap();
+    let (gx, gy, ox, oy, sx, sy) =
+        scan_fmt!(&line, "{} {} {} {} {} {}", usize, usize, f32, f32, f32, f32).unwrap();
+
+    let mut lp = LegalProblem {
+        blocks: Vec::new(),
+        params: LegalParams {
+            grid_x: gx,
+            grid_y: gy,
+            origin_x: ox,
+            origin_y: oy,
+            step_x: sx,
+            step_y: sy,
+            alpha_right: 2.0,
+            alpha_left: 0.5,
+        },
+    };
+
+    let line = getline(&mut reader).unwrap();
+    let (num_blocks) = scan_fmt!(&line, "{}", usize).unwrap();
+    for _i in 0..num_blocks {
+        let line = getline(&mut reader).unwrap();
+        let (tag, x, y, w, h) =
+            scan_fmt!(&line, "{} {} {} {} {}", usize, f32, f32, f32, f32).unwrap();
+        lp.blocks.push(LegalBlock {
+            tag: tag,
+            x: x,
+            y: y,
+            h: h,
+            w: w,
+        });
+    }
+
+    lp
+}
+/*
+impl LegalProblem {
+    pub fn postscript(&self, filename: &String, legalization: Vec<LegalPosition>) {
+        // let mut pst = pstools_r::pstools_r::PS
+        let mut pst = pstools::PSTool::new();
+
+        let ox = self.params.origin_x;
+        let oy = self.params.origin_y;
+        let urx = ox + self.params.step_x * self.params.grid_x as f32;
+        let ury = oy + self.params.step_y * self.params.grid_y as f32;
+
+        pst.add_box(ox, oy, urx, ury);
+
+        pst.set_color(0.5, 0.5, 1.0, 1.0);
+        for block in &self.blocks {
+            pst.add_box(block.x, block.y, block.x + block.w, block.y + block.h);
+        }
+
+        pst.generate(filename.clone());
+    }
+}
+*/
+
+impl LegalProblem {
+    pub fn save(&self, filepath: &String) {
+        let mut f;
+
+        // if the file path is empty, just print to standard out
+        f = Box::new(File::create(filepath).unwrap()) as Box<dyn Write>;
+        writeln!(
+            &mut f,
+            "{} {} {} {} {} {}",
+            self.params.grid_x,
+            self.params.grid_y,
+            self.params.origin_x,
+            self.params.origin_y,
+            self.params.step_x,
+            self.params.step_y
+        ).unwrap();
+        writeln!(&mut f, "{}", self.blocks.len()).unwrap();
+        for b in &self.blocks {
+            writeln!(&mut f, "{} {} {} {} {}", b.tag, b.x, b.y, b.w, b.h).unwrap();
+        }
+    }
+    pub fn postscript(&self, filename: &String, legalization: &Vec<LegalPosition>) {
+        let mut pst = pstools::PSTool::new();
+
+        // Draw the border
+        let ox = self.params.origin_x;
+        let oy = self.params.origin_y;
+        let urx = ox + self.params.step_x * self.params.grid_x as f32;
+        let ury = oy + self.params.step_y * self.params.grid_y as f32;
+        pst.add_box(ox, oy, urx, ury);
+
+        // Draw displacement lines in red first (underneath the blocks)
+        pst.set_color(1.0, 0.0, 0.0, 1.0);
+        let mut displace = 0.0;
+        let mut maxdisplace = 0.0;
+        let mut maxdisplace_block = None;
+
+        for block in legalization {
+            // if let Some(block) = self.blocks.iter().find(|b| b.tag == pos.block) {
+            // let block = &self.blocks[pos.block_tag];
+            {
+                // Draw line from original center to legalized center
+                let orig_center_x = block.original_x + block.w / 2.0;
+                let orig_center_y = block.original_y + block.h / 2.0;
+                let legal_center_x = block.x + block.w / 2.0;
+                let legal_center_y = block.y + block.h / 2.0;
+                let d =
+                    (orig_center_x - legal_center_x).abs() + (orig_center_y - legal_center_y).abs();
+                displace += d;
+                if d > maxdisplace {
+                    maxdisplace = d;
+                    maxdisplace_block = Some(block);
+                    // println!("Block tag {} displace {}", block.block_tag, maxdisplace);
+                }
+                pst.add_line(orig_center_x, orig_center_y, legal_center_x, legal_center_y);
+            }
+        }
+
+        pst.set_font(4.0, "Courier".to_string());
+        // Use legalized coordinates instead of original coordinates
+        pst.set_color(0.5, 0.5, 1.0, 1.0);
+        for block in legalization {
+            // if let Some(block) = self.blocks.iter().find(|b| b.tag == pos.block) {
+            {
+                // let block = &self.blocks[pos.block_tag];
+                // Use the legalized coordinates (pos.x, pos.y)
+                pst.add_box(block.x, block.y, block.x + block.w, block.y + block.h);
+                pst.add_text(
+                    block.x + block.w / 2.0,
+                    block.y + block.h / 2.0,
+                    format!("{}", block.block_tag),
+                );
+            }
+        }
+
+        pst.set_color(0.0, 0.0, 0.0, 1.0);
+        pst.set_font(20.0, "Courier".to_string());
+        pst.add_text(
+            ox + 20.0,
+            ury - 20.0,
+            format!("Displace: {:10.1}", displace),
+        );
+        pst.add_text(
+            ox + 20.0,
+            ury - 50.0,
+            format!("Max displace: {:6.1}", maxdisplace),
+        );
+        pst.add_text(
+            ox + 20.0,
+            ury - 80.0,
+            format!("Avg displace: {:6.1}", displace / self.blocks.len() as f32),
+        );
+
+        if maxdisplace_block.is_some() {
+            let block = maxdisplace_block.unwrap();
+            // pst.set_fill(true);
+            // pst.set_color(0.5, 0.1, 0.1, 1.0);
+            let border = self.params.step_y / 2.0;
+            pst.add_box(block.x - border, block.y - border, block.x + block.w + border, block.y + block.h + border);
+            let border = self.params.step_y / 1.5;
+            pst.add_box(block.x - border, block.y - border, block.x + block.w + border, block.y + block.h + border);
+
+        }
+
+        /*
+                // Draw legalized positions in blue (on top of the lines)
+                pst.set_color(0.2, 0.2, 0.8, 1.0);
+                for pos in legalization {
+                    if let Some(block) = self.blocks.iter().find(|b| b.tag == pos.block) {
+                        pst.add_box(pos.x, pos.y, pos.x + block.w, pos.y + block.h);
+                    }
+                }
+        */
+        pst.set_border(self.params.step_y * 2.0);
+        pst.generate(filename.clone());
+    }
+
+    pub fn postscript_fixed(&self, filename: &String) {
+        let mut pst = pstools::PSTool::new();
+
+        // Draw the border
+        let ox = self.params.origin_x;
+        let oy = self.params.origin_y;
+        let urx = ox + self.params.step_x * self.params.grid_x as f32;
+        let ury = oy + self.params.step_y * self.params.grid_y as f32;
+        pst.add_box(ox, oy, urx, ury);
+
+        pst.set_font(4.0, "Courier".to_string());
+        // Use legalized coordinates instead of original coordinates
+        pst.set_color(0.5, 0.5, 1.0, 1.0);
+        for block in &self.blocks {
+            // if let Some(block) = self.blocks.iter().find(|b| b.tag == pos.block) {
+            {
+                pst.add_box(block.x, block.y, block.x + block.w, block.y + block.h);
+                pst.add_text(
+                    block.x + block.w / 2.0,
+                    block.y + block.h / 2.0,
+                    format!("{}", block.tag),
+                );
+            }
+        }
+        pst.generate(filename.clone());
+    }
+
+    pub fn new() -> LegalProblem {
+        LegalProblem {
+            blocks: Vec::new(),
+            params: LegalParams {
+                grid_x: 0,
+                grid_y: 0,
+                origin_x: 0.0,
+                origin_y: 0.0,
+                step_x: 1.0,
+                step_y: 1.0,
+                alpha_left: 0.0,
+                alpha_right: 0.0,
+            },
+        }
+    }
+
+    pub fn new_from(&self, positions: &Vec<LegalPosition>) -> LegalProblem {
+        let mut new_lp = self.clone();
+        
+        new_lp.blocks = Vec::new();
+        for pos in positions {
+            new_lp.blocks.push(LegalBlock { tag: pos.block_tag, x: pos.x, y: pos.y, h: pos.h, w: pos.w });
+        }        
+
+        new_lp
+    }
+
+    pub fn move_blocks(&mut self, legalization: &Vec<LegalPosition>) {
+        for pos in legalization {
+            self.blocks[pos.block_tag].x = pos.x;
+            self.blocks[pos.block_tag].y = pos.y;
+        }
+    }
+
+    pub fn rotate(&mut self) {
+        std::mem::swap(&mut self.params.grid_x, &mut self.params.grid_y);
+        std::mem::swap(&mut self.params.origin_x, &mut self.params.origin_y);
+        std::mem::swap(&mut self.params.step_x, &mut self.params.step_y);
+        std::mem::swap(&mut self.params.alpha_left, &mut self.params.alpha_right);
+        for b in &mut self.blocks {
+            std::mem::swap(&mut b.x, &mut b.y);
+            std::mem::swap(&mut b.h, &mut b.w);
+        }
+    }
+    pub fn bounds(&self) -> pstools::bbox::BBox {
+        let mut bbox = pstools::bbox::BBox::new();
+        for block in &self.blocks {
+            bbox.addpoint(block.x, block.y);
+            bbox.addpoint(block.x + block.w, block.y + block.h);
+        }
+        bbox
+    }
+    pub fn move_to_origin(&mut self) {
+        let bbox = self.bounds();
+        let dx = bbox.llx - self.params.origin_x;
+        let dy = bbox.lly - self.params.origin_y;
+        for block in &mut self.blocks {
+            block.x -= dx;
+            block.y -= dy;
+        }
+    }
+    pub fn area(&self) -> f32 {
+        let mut total_area = 0.0;
+        for block in &self.blocks {
+            total_area += block.h * block.w;
+        }
+        total_area
+    }
+    pub fn rescale(&mut self) {
+        // Determine total area
+        let total_area = self.area();
+        let target_width = total_area / ((self.params.grid_y as f32)*self.params.step_y);
+
+        let bbox = self.bounds();
+        let scale_x = target_width / bbox.dx();
+        let target_height = self.params.grid_y as f32 * self.params.step_y;
+
+        let scale_y = target_height / bbox.dy();
+        #[cfg(feature="ldbg")]
+        {
+            println!("Rescale {} {} to {} {}", bbox.dx(), bbox.dy(), target_width, target_height);
+            println!("Scale_x {} scale_y {}", scale_x, scale_y);
+        }
+
+        for block in &mut self.blocks {
+            // New XY location
+            block.x = block.x * scale_x;
+            block.y = block.y * scale_y;
+        }
+    }
+    pub fn mirror_x(&mut self) {
+        let bbox = self.bounds();
+        for block in &mut self.blocks {
+            block.x = bbox.urx - (block.x + block.w);
+        }
+    }
+
+    pub fn mirror_y(&mut self) {
+        let bbox = self.bounds();
+        for block in &mut self.blocks {
+            block.y = bbox.ury - (block.y + block.h);
+        }
+    }
+
+    pub fn pack_west(&mut self) {
+        let leg = legalize_floorplan(self);
+        self.move_blocks(&leg);
+    }
+
+    pub fn pack_east(&mut self) {
+        self.mirror_x();
+        let leg = legalize_floorplan(self);
+        self.move_blocks(&leg);
+        self.mirror_x();
+    }
+
+    pub fn pack_south(&mut self) {
+        self.rotate();
+        let leg = legalize_floorplan(self);
+        self.move_blocks(&leg);
+        self.rotate();
+    }
+
+    pub fn pack_north(&mut self) {
+        self.mirror_y();
+        self.pack_south();
+        self.mirror_y();
+    }
+}
+
+fn getline(reader: &mut BufReader<File>) -> std::io::Result<String> {
+    loop {
+        let mut line = String::new();
+        let _len = reader.read_line(&mut line).unwrap();
+        // println!("Read in {} bytes, line {}", _len, line);
+
+        if _len == 0 {
+            return std::result::Result::Err(Error::new(ErrorKind::Other, "end of file"));
+        }
+
+        if line.starts_with("#") {
+            // println!("Skip comment.");
+            continue;
+        }
+
+        if _len == 1 {
+            continue;
+        }
+
+        return Ok(line.trim().to_string());
+    }
+    // Error::new(ErrorKind::Other, "Not reachable FILE IO error");
+}
+
+pub fn legalize_circuit(bc: &mut BookshelfCircuit, kind: LegalKind) {
+    let mut blocks = Vec::new();
+
+    for c in 0..bc.cells.len() {
+        if !bc.cells[c].terminal {
+            blocks.push(LegalBlock {
+                tag: c,
+                x: bc.cellpos[c].x,
+                y: bc.cellpos[c].y,
+                h: bc.cells[c].h,
+                w: bc.cells[c].w,
+            });
+        }
+    }
+
+    let b = bc.rows[0].bounds;
+
+    let width = b.urx - b.llx;
+    let height = b.ury - b.lly;
+
+    let params = LegalParams {
+        grid_x: (width / bc.rows[0].site_spacing) as usize,
+        grid_y: bc.rows.len(),
+        origin_x: bc.rows[0].bounds.llx,
+        origin_y: bc.rows[0].bounds.lly,
+        step_x: bc.rows[0].site_spacing,
+        step_y: height,
+        alpha_right: 2.0,
+        alpha_left: 0.5,
+    };
+
+    // println!("Legalize {} blocks\nIn space: {}", blocks.len(), params);
+
+    // if kind == LegalKind::Tetris {
+    //     let result = tetris::legalize(&blocks, &params);
+    // }
+
+    // if kind == LegalKind::HCwT {
+    //     let result = hcwt_legal::legalize(&blocks, &params);
+    // }
+}
+
+
+use std::fmt;
+
+use crate::legalize::tetris::legalize_floorplan;
+
+impl fmt::Display for LegalParams {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{} sites {} rows  origin {},{}   site width: {} row height {}",
+            self.grid_x, self.grid_y, self.origin_x, self.origin_y, self.step_x, self.step_y
+        )
+    }
+}
+
+#[derive(Clone)]
+pub struct CutLineResult {
+    pub left_blocks: Vec<LegalBlock>,
+    pub right_blocks: Vec<LegalBlock>,
+    pub cut_x: f32,
+    pub left_area: f32,
+    pub right_area: f32,
+    pub penalty: f32,
+}
+
+pub fn find_optimal_cut_vertical(
+    blocks: &[LegalBlock],
+    min_ratio: f32,
+    max_ratio: f32,
+) -> Option<CutLineResult> {
+    if blocks.is_empty() {
+        return None;
+    }
+
+    // calculate the total area
+    let total_area: f32 = blocks.iter().map(|b| b.w * b.h).sum();
+    let min_area = total_area * min_ratio;
+    let max_area = total_area * max_ratio;
+
+    // create block(center info)
+    let mut blocks_with_center: Vec<(LegalBlock, f32)> = blocks
+        .iter()
+        .map(|b| {
+            let center_x = b.x + b.w / 2.0;
+            (b.clone(), center_x)
+        })
+        .collect();
+
+    // center point x sorting
+    blocks_with_center.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+
+    let mut best_result = None;
+    let mut best_penalty = f32::MAX;
+
+    // try cut at each bloch center
+    for i in 0..blocks_with_center.len() {
+        let cut_x = blocks_with_center[i].1;
+        
+        // left area
+        let mut left_blocks = Vec::new();
+        let mut right_blocks = Vec::new();
+        let mut left_area = 0.0;
+        let mut right_area = 0.0;
+        let mut cut_penalty = 0.0;
+
+        for (block, center_x) in &blocks_with_center {
+            if *center_x <= cut_x {
+                left_blocks.push(block.clone());
+                left_area += block.w * block.h;
+            } else {
+                right_blocks.push(block.clone());
+                right_area += block.w * block.h;
+            }
+        }
+
+        // check area
+        if left_area < min_area || left_area > max_area {
+            continue;
+        }
+
+        // calculate cutting penalty
+        for (block, center_x) in &blocks_with_center {
+            if *center_x <= cut_x && *center_x + block.w > cut_x {
+                // small area penalty
+                let left_part = cut_x - block.x;
+                let right_part = block.x + block.w - cut_x;
+                let smaller_part = left_part.min(right_part);
+                let penalty = smaller_part / block.w; // 
+                cut_penalty += penalty * (block.w * block.h); // 
+            } else if *center_x > cut_x && block.x < cut_x {
+                // 
+                let left_part = cut_x - block.x;
+                let right_part = block.x + block.w - cut_x;
+                let smaller_part = left_part.min(right_part);
+                let penalty = smaller_part / block.w;
+                cut_penalty += penalty * (block.w * block.h);
+            }
+        }
+
+        // total penalty
+        let area_imbalance = (left_area - right_area).abs() / total_area;
+        let total_penalty = cut_penalty + area_imbalance * total_area;
+
+        if total_penalty < best_penalty {
+            best_penalty = total_penalty;
+            best_result = Some(CutLineResult {
+                left_blocks,
+                right_blocks,
+                cut_x,
+                left_area,
+                right_area,
+                penalty: total_penalty,
+            });
+        }
+    }
+
+    best_result
+}
+
+
+
+pub fn recursive_bisection(
+    blocks: &[LegalBlock],
+    depth: usize,
+    max_depth: usize,
+    min_ratio: f32,
+    max_ratio: f32,
+) -> Vec<Vec<LegalBlock>> {
+    if depth >= max_depth || blocks.len() <= 1 {
+        return vec![blocks.to_vec()];
+    }
+
+    // try vertical cutting
+    if let Some(cut_result) = find_optimal_cut_vertical(blocks, min_ratio, max_ratio) {
+        let mut result = Vec::new();
+        
+        // recursion(left side)
+        result.extend(recursive_bisection(
+            &cut_result.left_blocks,
+            depth + 1,
+            max_depth,
+            min_ratio,
+            max_ratio,
+        ));
+        
+        // recursion(right side)
+        result.extend(recursive_bisection(
+            &cut_result.right_blocks,
+            depth + 1,
+            max_depth,
+            min_ratio,
+            max_ratio,
+        ));
+        
+        result
+    } else {
+        // if not find the suitable cutting, try horizontal
+        if let Some(cut_result) = find_optimal_cut_horizontal(blocks, min_ratio, max_ratio) {
+            let mut result = Vec::new();
+            
+            result.extend(recursive_bisection(
+                &cut_result.left_blocks, // bottom blocks
+                depth + 1,
+                max_depth,
+                min_ratio,
+                max_ratio,
+            ));
+            
+            result.extend(recursive_bisection(
+                &cut_result.right_blocks, // top blocks
+                depth + 1,
+                max_depth,
+                min_ratio,
+                max_ratio,
+            ));
+            
+            result
+        } else {
+            vec![blocks.to_vec()]
+        }
+    }
+}
+
+/// find the optimal position of the horizontal cutting line
+pub fn find_optimal_cut_horizontal(
+    blocks: &[LegalBlock],
+    min_ratio: f32,
+    max_ratio: f32,
+) -> Option<CutLineResult> {
+    if blocks.is_empty() {
+        return None;
+    }
+
+    let total_area: f32 = blocks.iter().map(|b| b.w * b.h).sum();
+    let min_area = total_area * min_ratio;
+    let max_area = total_area * max_ratio;
+
+    let mut blocks_with_center: Vec<(LegalBlock, f32)> = blocks
+        .iter()
+        .map(|b| {
+            let center_y = b.y + b.h / 2.0;
+            (b.clone(), center_y)
+        })
+        .collect();
+
+    blocks_with_center.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+
+    let mut best_result = None;
+    let mut best_penalty = f32::MAX;
+
+    for i in 0..blocks_with_center.len() {
+        let cut_y = blocks_with_center[i].1;
+        
+        let mut bottom_blocks = Vec::new();
+        let mut top_blocks = Vec::new();
+        let mut bottom_area = 0.0;
+        let mut top_area = 0.0;
+        let mut cut_penalty = 0.0;
+
+        for (block, center_y) in &blocks_with_center {
+            if *center_y <= cut_y {
+                bottom_blocks.push(block.clone());
+                bottom_area += block.w * block.h;
+            } else {
+                top_blocks.push(block.clone());
+                top_area += block.w * block.h;
+            }
+        }
+
+        if bottom_area < min_area || bottom_area > max_area {
+            continue;
+        }
+
+        // calculate cutting penalty
+        for (block, center_y) in &blocks_with_center {
+            if *center_y <= cut_y && *center_y + block.h > cut_y {
+                let bottom_part = cut_y - block.y;
+                let top_part = block.y + block.h - cut_y;
+                let smaller_part = bottom_part.min(top_part);
+                let penalty = smaller_part / block.h;
+                cut_penalty += penalty * (block.w * block.h);
+            } else if *center_y > cut_y && block.y < cut_y {
+                let bottom_part = cut_y - block.y;
+                let top_part = block.y + block.h - cut_y;
+                let smaller_part = bottom_part.min(top_part);
+                let penalty = smaller_part / block.h;
+                cut_penalty += penalty * (block.w * block.h);
+            }
+        }
+
+        let area_imbalance = (bottom_area - top_area).abs() / total_area;
+        let total_penalty = cut_penalty + area_imbalance * total_area;
+
+        if total_penalty < best_penalty {
+            best_penalty = total_penalty;
+            best_result = Some(CutLineResult {
+                left_blocks: bottom_blocks,
+                right_blocks: top_blocks,
+                cut_x: cut_y,
+                left_area: bottom_area,
+                right_area: top_area,
+                penalty: total_penalty,
+            });
+        }
+    }
+
+    best_result
+}
+
+/// convert the cutting results to LegalProblem format
+pub fn cut_problem(
+    lp: &LegalProblem,
+    max_depth: usize,
+    min_ratio: f32,
+    max_ratio: f32,
+) -> Vec<LegalProblem> {
+    let groups = recursive_bisection(&lp.blocks, 0, max_depth, min_ratio, max_ratio);
+    
+    groups
+        .into_iter()
+        .map(|blocks| {
+            let mut new_lp = lp.clone();
+            new_lp.blocks = blocks;
+            new_lp
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_find_optimal_cut() {
+        let blocks = vec![
+            LegalBlock { tag: 0, x: 0.0, y: 0.0, w: 10.0, h: 10.0 },
+            LegalBlock { tag: 1, x: 15.0, y: 0.0, w: 10.0, h: 10.0 },
+            LegalBlock { tag: 2, x: 30.0, y: 0.0, w: 10.0, h: 10.0 },
+        ];
+
+        let result = find_optimal_cut_vertical(&blocks, 0.4, 0.6);
+        assert!(result.is_some());
+        
+        let cut = result.unwrap();
+        assert_eq!(cut.left_blocks.len(), 2);
+        assert_eq!(cut.right_blocks.len(), 1);
+    }
+
+    #[test]
+    fn test_cut_penalty() {
+        // create a large block
+        let blocks = vec![
+            LegalBlock { tag: 0, x: 0.0, y: 0.0, w: 100.0, h: 10.0 }, // big block
+            LegalBlock { tag: 1, x: 120.0, y: 0.0, w: 10.0, h: 10.0 }, // small
+        ];
+
+        let result = find_optimal_cut_vertical(&blocks, 0.4, 0.6);
+        assert!(result.is_some());
+        
+        let cut = result.unwrap();
+        // cutting line avoid crossing large blocks, it might be cut to the right of the block
+        assert!(cut.cut_x > 100.0);
+    }
+}
