@@ -1,4 +1,8 @@
 use argh::FromArgs;
+use std::path::Path;
+use std::fs::File;
+use std::io::prelude::*;
+
 #[derive(FromArgs)]
 /// Placement legalization
 struct Args {
@@ -97,20 +101,29 @@ fn main() {
     println!("{} blocks in total", lp.blocks.len());
 
     if arguments.bisection {
+        /*
         println!("Initializing area grid . . .");
         let area_grid = legalize::legalize::AreaGrid::new(&lp.blocks, 0.1);
 
         println!("Initializing cut grid . . .");
         let cut_grid = legalize::legalize::CutGrid::new(&lp.blocks);
+        */
 
         let regions = legalize::legalize::recursive_bisection(
             &lp.blocks,
-            &legalize::legalize::no_direction_heuristic,
-            &cut_grid.center_cut_heuristic(),
-            Some(&mut legalize::legalize::original_penalty_heuristic(&area_grid, &cut_grid)),
+            legalize::legalize::no_direction_heuristic,
+            legalize::legalize::CutAndPenalizeStreamlined::new(
+                10, legalize::legalize::streamlined_penalty(1.0)
+            ),
+            /*
+            legalize::legalize::CutAndPenalizeCustom::new(
+                &cut_grid.between_center_cut_heuristic(),
+                Some(&mut legalize::legalize::original_penalty_heuristic(&area_grid, &cut_grid)),
+            ),
+            */
             &[],//&[&legalize::legalize::band_heuristic(0.99)],
             /*&[&legalize::legalize::band_heuristic(0.9)],*/
-            &legalize::legalize::min_penalty_heuristic,
+            legalize::legalize::min_penalty_heuristic,
             None,
         );
 
@@ -123,11 +136,32 @@ fn main() {
         println!();
         */
 
-        legalize::legalize::draw_bisection(&lp.blocks, &regions, "goch_test_new.ps", (400.0, 600.0));
+        legalize::legalize::draw_bisection(&lp.blocks, &regions, "goch_test_streamlined.ps", (400.0, 600.0));
+
+        let sharp_path = Path::new("output_sharp.txt");
+        let mut sharp_file = match File::create(&sharp_path) {
+            Err(err) => panic!("Can't create sharp file: {}", err),
+            Ok(file) => file,
+        };
+        let sharp = legalize::legalize::to_sharp(
+            &lp.blocks,
+            &regions,
+            vec![],
+        );
+        match sharp_file.write_all(sharp.as_bytes()) {
+            Err(err) => panic!("Can't write sharp file: {}", err),
+            Ok(_) => (),
+        }
 
         legalize::legalize::draw_blocks(&lp.blocks, "ibm01_blocks.ps", (400.0, 600.0));
 
-        legalize::legalize::print_tree(&regions);
+        println!("{}", legalize::legalize::to_sharp(
+            &lp.blocks,
+            &regions,
+            vec!["One comment".to_string(), "Another comment".to_string()],
+        ));
+
+        //legalize::legalize::print_tree(&regions);
     }
 
     if arguments.delta_row.is_some() {

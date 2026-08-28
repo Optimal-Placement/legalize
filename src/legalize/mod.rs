@@ -1094,7 +1094,7 @@ pub struct Region {
     pub left: Option<usize>,
     pub right: Option<usize>,
     pub subregions: Vec<usize>,
-    //pub blocks: Vec<usize>,
+    pub blocks: Vec<usize>,
     pub parent: Option<usize>,
     pub cut_coord: Option<f32>,
 
@@ -1542,12 +1542,469 @@ pub struct CutLine {
     pub penalty: Option<f32>,
 }
 
+trait CutAndPenalize {
+    fn run(
+        &mut self,
+        blocks: &[LegalBlock],
+        region: &Region,
+        directions: &Directions,
+    ) -> (Vec<CutLine>, Vec<CutLine>);
+}
+
+/*
+type CutHeuristic = &impl Fn(
+    &[LegalBlock],
+    &Region,
+    &Directions,
+) -> (Vec<CutLine>, Vec<CutLine>);
+
+type PenaltyHeuristic = &impl FnMut(
+    &[LegalBlock],
+    &Region,
+    (&mut [CutLine], &mut [CutLine]),
+) -> ();
+*/
+
+pub struct CutAndPenalizeCustom<C, P> 
+where
+    C: Fn(
+        &[LegalBlock],
+        &Region,
+        &Directions,
+    ) -> (Vec<CutLine>, Vec<CutLine>),
+    P: FnMut(
+        &[LegalBlock],
+        &Region,
+        (&mut [CutLine], &mut [CutLine]),
+    ) -> (),
+{
+    cut_heuristic: C,
+    penalty_heuristic: Option<P>,
+}
+
+impl<C, P> CutAndPenalizeCustom<C, P>
+where
+    C: Fn(
+        &[LegalBlock],
+        &Region,
+        &Directions,
+    ) -> (Vec<CutLine>, Vec<CutLine>),
+    P: FnMut(
+        &[LegalBlock],
+        &Region,
+        (&mut [CutLine], &mut [CutLine]),
+    ) -> (),
+{
+    pub fn new(
+        cut_heuristic: C,
+        mut penalty_heuristic: Option<P>,
+    ) -> Self {
+        Self {
+            cut_heuristic,
+            penalty_heuristic,
+        }
+    }
+}
+
+impl<C, P> CutAndPenalize for CutAndPenalizeCustom<C, P>
+where
+    C: Fn(
+        &[LegalBlock],
+        &Region,
+        &Directions,
+    ) -> (Vec<CutLine>, Vec<CutLine>),
+    P: FnMut(
+        &[LegalBlock],
+        &Region,
+        (&mut [CutLine], &mut [CutLine]),
+    ) -> (),
+{
+    fn run(
+        &mut self,
+        blocks: &[LegalBlock],
+        region: &Region,
+        directions: &Directions,
+    ) -> (Vec<CutLine>, Vec<CutLine>) {
+        let (mut cuts_v, mut cuts_h) = (self.cut_heuristic)(blocks, region, directions);
+
+        if let Some(penalty_heuristic) = &mut self.penalty_heuristic {
+            println!("Extracted penalty.");
+            penalty_heuristic(blocks, region, (&mut cuts_v, &mut cuts_h));
+        }
+
+        (cuts_v, cuts_h)
+    }
+}
+
+pub struct CutAndPenalizeStreamlined<P>
+where
+    P: Fn(
+        f32, // Area of left side
+        f32, // Area of right side
+        f32, // Cut penalty
+        f32, // Aspect ratio
+        bool, // Horizontal
+    ) -> f32,
+    /*
+    D: Fn(
+        &CutLine, // Best vertical cut
+        &CutLine, // Best horizontal cut
+        f32, // Aspect ratio
+    ) -> bool, // Horizontal
+    */
+{
+    num_big_blocks: usize,
+    penalty: P,
+    //direction_heuristic: D,
+}
+
+impl<P> CutAndPenalizeStreamlined<P>
+where
+    P: Fn(
+        f32, // Area of left side
+        f32, // Area of right side
+        f32, // Cut penalty
+        f32, // Aspect ratio
+        bool, // Horizontal
+    ) -> f32,
+    /*
+    D: Fn(
+        &CutLine, // Best vertical cut
+        &CutLine, // Best horizontal cut
+        f32, // Aspect ratio
+    ) -> bool, // Horizontal
+    */
+{
+    pub fn new(
+        num_big_blocks: usize,
+        penalty: P,
+        //direction_heuristic: D,
+    ) -> Self {
+        Self {
+            num_big_blocks,
+            penalty,
+            //direction_heuristic,
+        }
+    }
+}
+
+/*
+#[derive(Debug)]
+struct FloatAndIndex(f32, usize);
+
+impl PartialOrd for FloatAndIndex {
+    fn partial_cmp(&self, other: Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for FloatAndIndex {
+    fn cmp(&self, other: Self) -> Ordering {
+        self.0.total_cmp(other.0);
+    }
+}
+
+// Find the k largest numbers in O(n*log(k)) time
+// https://www.geeksforgeeks.org/dsa/k-largestor-smallest-elements-in-an-array/
+fn max_k_values<T>(values: &[T], k: usize)  -> Vec<T>
+where
+    T: Ord + PartialOrd
+{
+    use std::collections::BinaryHeap;
+    use std::cmp::Reverse;
+
+    assert!(k > 0 && k <= values.len(), "Cannot select top {} elements from {} items.", k, values.len());
+
+    let heap = BinaryHeap::new();
+
+    for i in 0..k {
+        heap.push(Reverse(values[i]));
+    }
+
+    for i in k..values.len() {
+        let Some(Reverse(top)) = heap.peek() else {
+            panic!("Heap is empty after inserting k items and then only adding and removing items in pairs.");
+        };
+        if values[i] > top {
+            heap.pop();
+            heap.push(Reverse(values[i]));
+        }
+    }
+
+    let result = Vec::with_capacity(k);
+
+    for _ in 0..k {
+        result.push(heap.pop());
+    }
+
+    result
+}
+*/
+
+impl<P> CutAndPenalize for CutAndPenalizeStreamlined<P>
+where
+    P: Fn(
+        f32, // Area of left side
+        f32, // Area of right side
+        f32, // Cut penalty
+        f32, // Aspect ratio
+        bool, // Horizontal
+    ) -> f32,
+    /*
+    D: Fn(
+        &CutLine, // Best vertical cut
+        &CutLine, // Best horizontal cut
+        f32, // Aspect ratio
+    ) -> bool, // Horizontal
+    */
+{
+    fn run(
+        &mut self,
+        blocks: &[LegalBlock],
+        region: &Region,
+        directions: &Directions,
+    ) -> (Vec<CutLine>, Vec<CutLine>) {
+        let mut cuts_v = Vec::new();
+        let mut cuts_h = Vec::new();
+
+        // Find biggest blocks
+        let mut biggest = region.blocks.clone();
+        biggest.sort_by(
+            |a, b| (blocks[*b].w * blocks[*b].h).total_cmp(&(blocks[*a].w * blocks[*a].h))
+        );
+        biggest.truncate(self.num_big_blocks);
+
+        // Sort blocks from left to right
+        let mut sorted = region.blocks.clone();
+        sorted.sort_by(
+            |a, b| (blocks[*a].x + (blocks[*a].w / 2.0)).total_cmp(&(blocks[*b].x + (blocks[*b].w / 2.0)))
+        );
+        sorted.dedup_by_key(
+            |b| blocks[*b].x + (blocks[*b].w / 2.0)
+        );
+
+        // Make the walk from left to right
+        if sorted.len() == 2 {
+            cuts_v.push(CutLine {
+                coord: (
+                    (blocks[sorted[0]].x + (blocks[sorted[0]].w / 2.0)) +
+                    (blocks[sorted[1]].x + (blocks[sorted[1]].w / 2.0))
+                ) / 2.0,
+                horizontal: false,
+                penalty: Some((self.penalty)(
+                    blocks[sorted[0]].w * blocks[sorted[0]].h,
+                    blocks[sorted[1]].w * blocks[sorted[1]].h,
+                    0.0,
+                    (region.urx - region.llx) / (region.ury - region.lly),
+                    false,
+                )),
+            });
+        } else if sorted.len() > 2 {
+            let mut left_area = blocks[sorted[0]].w * blocks[sorted[0]].h;
+            let mut right_area = sorted
+                .iter()
+                .map(|b| blocks[*b].w * blocks[*b].h)
+                .sum::<f32>() - left_area;
+            for i in 1..(sorted.len() - 1) {
+                let x = blocks[sorted[i]].x + (blocks[sorted[i]].w / 2.0);
+                let area = blocks[sorted[i]].w * blocks[sorted[i]].h;
+                left_area += area;
+                right_area -= area;
+
+                let cut_penalty = biggest
+                    .iter()
+                    .map(|b|
+                        // Compute absolute distance from cut line to the
+                        // center of the cut block, divide by half the width
+                        // of the cut block, subtract that from one (to make
+                        // sure the penalty is highest at the midline), then
+                        // clamp at zero (for the case where the line does not
+                        // intersect with the block at all)
+                        (1.0 - ((x - (blocks[*b].x + (blocks[*b].w / 2.0))).abs() / (blocks[*b].w / 2.0))).max(0.0)
+                        * (blocks[*b].w * blocks[*b].h)
+                    )
+                    .sum();
+
+                cuts_v.push(CutLine {
+                    coord: x,
+                    horizontal: false,
+                    penalty: Some((self.penalty)(
+                        left_area,
+                        right_area,
+                        cut_penalty,
+                        (region.urx - region.llx) / (region.ury - region.lly),
+                        false,
+                    )),
+                });
+            }
+        }
+        
+        // Sort blocks from bottom to top
+        let mut sorted = region.blocks.clone();
+        sorted.sort_by(
+            |a, b| (blocks[*a].y + (blocks[*a].h / 2.0)).total_cmp(&(blocks[*b].y + (blocks[*b].h / 2.0)))
+        );
+        sorted.dedup_by_key(
+            |b| blocks[*b].y + (blocks[*b].h / 2.0)
+        );
+
+        // Make the walk from bottom to top
+        if sorted.len() == 2 {
+            cuts_v.push(CutLine {
+                coord: (
+                    (blocks[sorted[0]].y + (blocks[sorted[0]].h / 2.0)) +
+                    (blocks[sorted[1]].y + (blocks[sorted[1]].h / 2.0))
+                ) / 2.0,
+                horizontal: true,
+                penalty: Some((self.penalty)(
+                    blocks[sorted[0]].w * blocks[sorted[0]].h,
+                    blocks[sorted[1]].w * blocks[sorted[1]].h,
+                    0.0,
+                    (region.urx - region.llx) / (region.ury - region.lly),
+                    false,
+                )),
+            });
+        } else if sorted.len() > 2 {
+            let mut bottom_area = blocks[sorted[0]].w * blocks[sorted[0]].h;
+            let mut top_area = sorted
+                .iter()
+                .map(|b| blocks[*b].w * blocks[*b].h)
+                .sum::<f32>() - bottom_area;
+            for i in 1..(sorted.len() - 1) {
+                let y = blocks[sorted[i]].y + (blocks[sorted[i]].h / 2.0);
+                let area = blocks[sorted[i]].w * blocks[sorted[i]].h;
+                bottom_area += area;
+                top_area -= area;
+
+                let cut_penalty = biggest
+                    .iter()
+                    .map(|b|
+                        // Compute absolute distance from cut line to the
+                        // center of the cut block, divide by half the height
+                        // of the cut block, subtract that from one (to make
+                        // sure the penalty is highest at the midline), then
+                        // clamp at zero (for the case where the line does not
+                        // intersect with the block at all)
+                        (1.0 - ((y - (blocks[*b].y + (blocks[*b].h / 2.0))).abs() / (blocks[*b].h / 2.0))).max(0.0)
+                        * (blocks[*b].w * blocks[*b].h)
+                    )
+                    .sum();
+
+                cuts_h.push(CutLine {
+                    coord: y,
+                    horizontal: true,
+                    penalty: Some((self.penalty)(
+                        bottom_area,
+                        top_area,
+                        cut_penalty,
+                        (region.urx - region.llx) / (region.ury - region.lly),
+                        true,
+                    )),
+                });
+            }
+        }
+
+        (cuts_v, cuts_h)
+    }
+}
+
+pub fn streamlined_penalty(
+    direction_factor: f32,
+) -> impl Fn(
+    f32, f32, f32, f32, bool,
+) -> f32 {
+    move |
+        left_area,
+        right_area,
+        cut_penalty,
+        aspect_ratio,
+        horizontal,
+    | {
+        let area_penalty = (right_area - left_area).abs();
+        let direction_penalty = if !horizontal {
+            1.0
+        } else {
+            aspect_ratio.powf(direction_factor)
+        };
+        (area_penalty + cut_penalty) * direction_penalty
+    }
+}
+
+pub fn to_sharp(
+    blocks: &[LegalBlock],
+    regions: &[Region],
+    comments: Vec<String>,
+) -> String {
+    let mut internal_lines = Vec::with_capacity(regions.len());
+    let mut leaf_lines = Vec::with_capacity(regions.len());
+    for (id, region) in regions.iter().enumerate() {
+        let num_children = match region.kind {
+            RegionKind::Leaf => 0,
+            _ => 2,
+        };
+
+        if num_children == 2 {
+            let vh = match region.kind {
+                RegionKind::Vertical => "V",
+                RegionKind::Horizontal => "H",
+                RegionKind::Leaf => panic!("Node is simultaneously a leaf and an internal node."),
+            };
+
+            internal_lines.push(format!(
+                "{} {} 2 {} {} {} {} {} 0\n{} {}\n",
+                id, vh, region.blocks.len(),
+                region.llx, region.lly,
+                region.urx, region.ury,
+                region.left.unwrap(), region.right.unwrap(),
+            ));
+        } else {
+            leaf_lines.push(format!(
+                "{} H 0 {} {} {} {} {} 0\n{}",
+                id, region.blocks.len(),
+                region.llx, region.lly,
+                region.urx, region.ury,
+                region.blocks.iter()
+                    .map(|b| format!("{} {} {}\n", *b,
+                        blocks[*b].x + (blocks[*b].w / 2.0),
+                        blocks[*b].y + (blocks[*b].h / 2.0),
+                    ))
+                    .collect::<String>()
+            ));
+        }
+    }
+
+    let mut all_lines = Vec::with_capacity(
+        comments.len() +
+        1 + // for the total number of nodes
+        internal_lines.len() +
+        leaf_lines.len()
+    );
+
+    for line in comments {
+        all_lines.push(format!("# {}", line));
+    }
+
+    all_lines.push(regions.len().to_string());
+
+    for line in internal_lines {
+        all_lines.push(line);
+    }
+
+    for line in leaf_lines {
+        all_lines.push(line);
+    }
+
+    all_lines.into_iter().collect()
+}
+
 pub fn recursive_bisection(
     blocks: &[LegalBlock],
-    direction_heuristic: &impl Fn(
+    direction_heuristic: impl Fn(
         &[LegalBlock],
         &Region,
     ) -> Directions,
+    mut cut_and_penalize: impl CutAndPenalize,
+    /*
     cut_heuristic: &impl Fn(
         &[LegalBlock],
         &Region,
@@ -1558,12 +2015,13 @@ pub fn recursive_bisection(
         &Region,
         (&mut [CutLine], &mut [CutLine]),
     ) -> ()>,
+    */
     filter_heuristics: &[&dyn Fn(
         &[LegalBlock],
         &Region,
         &CutLine,
     ) -> bool],
-    selection_heuristic: &impl Fn(
+    selection_heuristic: impl Fn(
         &[LegalBlock],
         &Region,
         (&[CutLine], &[CutLine]),
@@ -1591,7 +2049,7 @@ pub fn recursive_bisection(
         left: None,
         right: None,
         subregions: Vec::new(),
-        //blocks: block_indices,
+        blocks: (0..blocks.len()).collect(),
         parent: None,
         cut_coord: None,
         llx: outer_llx,
@@ -1632,27 +2090,41 @@ pub fn recursive_bisection(
                 let center_x = b.x + (b.w / 2.0);
                 let center_y = b.y + (b.h / 2.0);
 
-                (center_x > regions[region_index].llx) &&
+                (center_x >= regions[region_index].llx) &&
                     (center_x < regions[region_index].urx) &&
-                    (center_y > regions[region_index].lly) &&
+                    (center_y >= regions[region_index].lly) &&
                     (center_y < regions[region_index].ury)
             })
             .count();
 
         println!("blocks_in_region: {blocks_in_region}");
+        println!("regions[region_index].blocks.len(): {}", regions[region_index].blocks.len());
         // If the region contains only one block
-        if blocks_in_region <= 1 || depth >= max_depth.unwrap_or(usize::MAX) {
+        if regions[region_index].blocks.len() <= 1 || depth >= max_depth.unwrap_or(usize::MAX) {
+            println!(
+                "Base case reached: (regions[region_index].blocks.len(), depth) = ({}, {})",
+                regions[region_index].blocks.len(), depth,
+            );
             continue;
         }
 
         // Compute cuts
         let directions = direction_heuristic(blocks, &regions[region_index]);
+
+        let (mut cuts_v, mut cuts_h) = cut_and_penalize.run(
+            blocks,
+            &regions[region_index],
+            &directions,
+        );
+
+        /*
         let (mut cuts_v, mut cuts_h) = cut_heuristic(blocks, &regions[region_index], &directions);
 
         // If there is a penalty heuristic, then apply it to the cuts
         if let Some(penalty_heuristic) = &mut penalty_heuristic {
             penalty_heuristic(blocks, &regions[region_index], (&mut cuts_v, &mut cuts_h));
         }
+        */
         
         // Apply each filter heuristic one at a time.
         for filter_heuristic in filter_heuristics {
@@ -1698,12 +2170,27 @@ pub fn recursive_bisection(
             regions[region_index].ury,
         )};
 
+        let (left_blocks, right_blocks): (Vec<usize>, Vec<usize>) = if !cut.horizontal {
+            regions[region_index].blocks.iter()
+                .partition(|b| {
+                    let center = blocks[**b].x + (blocks[**b].w / 2.0);
+                    center < cut.coord
+                })
+        } else {
+            regions[region_index].blocks.iter()
+                .partition(|b| {
+                    let center = blocks[**b].y + (blocks[**b].h / 2.0);
+                    center < cut.coord
+                })
+        };
+
         // Create the regions
         let A = Region {
             kind: RegionKind::Leaf,
             left: None,
             right: None,
             subregions: Vec::new(),
+            blocks: left_blocks,
             parent: Some(region_index),
             cut_coord: None,
             llx: A_llx,
@@ -1716,6 +2203,7 @@ pub fn recursive_bisection(
             left: None,
             right: None,
             subregions: Vec::new(),
+            blocks: right_blocks,
             parent: Some(region_index),
             cut_coord: None,
             llx: B_llx,
@@ -2480,6 +2968,116 @@ impl CutGrid {
             }
         }
         penalties
+    }
+
+    pub fn between_center_cut_heuristic(&self) -> impl Fn(
+        &[LegalBlock],
+        &Region,
+        &Directions,
+    ) -> (Vec<CutLine>, Vec<CutLine>) {
+        let mut between_v = Vec::with_capacity(self.centers_v.len() - 1);
+        for j in 1..self.centers_v.len() {
+            between_v.push((self.centers_v[j - 1].1 + self.centers_v[j].1) / 2.0);
+        }
+        let mut between_h = Vec::with_capacity(self.centers_h.len() - 1);
+        for i in 1..self.centers_h.len() {
+            between_h.push((self.centers_h[i - 1].1 + self.centers_h[i].1) / 2.0);
+        }
+        move |blocks, region, directions| {
+            println!("region.llx: {}", region.llx);
+            println!("region.lly: {}", region.lly);
+            println!("region.urx: {}", region.urx);
+            println!("region.ury: {}", region.ury);
+
+            let mut between_v = between_v.clone();
+            between_v.dedup();
+            let mut between_h = between_h.clone();
+            between_h.dedup();
+
+            let mut j_left = match between_v.binary_search_by(|t| t.total_cmp(&region.llx)) {
+                Ok(j) => j + 1,
+                Err(j) => j,
+            };
+            while between_v[j_left] <= region.llx {
+                j_left += 1;
+            }
+            let mut j_right = match between_v.binary_search_by(|t| t.total_cmp(&region.urx)) {
+                Ok(j) => j - 1,
+                Err(j) => j - 1,
+            };
+            while between_v[j_right] >= region.urx {
+                j_right -= 1;
+            }
+            j_right = j_right.max(j_left);
+            /*
+            if centers_v[j_left].1 == region.llx {
+                j_left += 1;
+            }
+            if centers_v[j_right].1 == region.urx {
+                j_right -= 1;
+            }
+            */
+            println!("j_left: {j_left}");
+            println!("j_right: {j_right}");
+            
+            let mut between_cuts_v = Vec::with_capacity(j_right - j_left + 1);
+            for j in j_left..=j_right {
+                between_cuts_v.push(CutLine {
+                    coord: between_v[j],
+                    horizontal: false,
+                    penalty: None,
+                });
+            }
+            let mut i_bottom = match between_h.binary_search_by(|t| t.total_cmp(&region.lly)) {
+                Ok(i) => i + 1,
+                Err(i) => i,
+            };
+            while between_h[i_bottom] <= region.lly {
+                i_bottom += 1;
+            }
+            let mut i_top = match between_h.binary_search_by(|t| t.total_cmp(&region.ury)) {
+                    Ok(i) => i - 1,
+                    Err(i) => i - 1,
+            };
+            while between_h[i_top] >= region.ury {
+                i_top -= 1
+            }
+            i_top = i_top.max(i_bottom);
+            /*
+            if centers_h[i_bottom].1 == region.lly {
+                i_bottom += 1;
+            }
+            if centers_h[i_top].1 == region.ury {
+                i_top -= 1;
+            }
+            */
+            println!("i_bottom: {i_bottom}");
+            println!("i_top: {i_top}");
+
+            let mut between_cuts_h = Vec::with_capacity(i_top - i_bottom + 1);
+            for i in i_bottom..=i_top {
+                between_cuts_h.push(CutLine {
+                    coord: between_h[i],
+                    horizontal: true,
+                    penalty: None,
+                });
+            }
+
+            println!(
+                "between_cuts_v avg: {}, between_cuts_v min: {}, between_cuts_v max: {}",
+                between_cuts_v.iter().map(|c| c.coord).sum::<f32>() / between_cuts_v.len() as f32,
+                between_cuts_v.iter().map(|c| c.coord).min_by(f32::total_cmp).unwrap(),
+                between_cuts_v.iter().map(|c| c.coord).max_by(f32::total_cmp).unwrap(),
+            );
+            println!(
+                "between_cuts_h avg: {}, between_cuts_h min: {}, between_cuts_h max: {}",
+                between_cuts_h.iter().map(|c| c.coord).sum::<f32>() / between_cuts_h.len() as f32,
+                between_cuts_h.iter().map(|c| c.coord).min_by(f32::total_cmp).unwrap(),
+                between_cuts_h.iter().map(|c| c.coord).max_by(f32::total_cmp).unwrap(),
+            );
+
+            (between_cuts_v, between_cuts_h)
+        }
     }
 
     pub fn center_cut_heuristic(&self) -> impl Fn(
