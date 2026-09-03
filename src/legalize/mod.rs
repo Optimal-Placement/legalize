@@ -178,7 +178,8 @@ impl LegalProblem {
             self.params.origin_y,
             self.params.step_x,
             self.params.step_y
-        ).unwrap();
+        )
+        .unwrap();
         writeln!(&mut f, "{}", self.blocks.len()).unwrap();
         for b in &self.blocks {
             writeln!(&mut f, "{} {} {} {} {}", b.tag, b.x, b.y, b.w, b.h).unwrap();
@@ -261,10 +262,19 @@ impl LegalProblem {
             // pst.set_fill(true);
             // pst.set_color(0.5, 0.1, 0.1, 1.0);
             let border = self.params.step_y / 2.0;
-            pst.add_box(block.x - border, block.y - border, block.x + block.w + border, block.y + block.h + border);
+            pst.add_box(
+                block.x - border,
+                block.y - border,
+                block.x + block.w + border,
+                block.y + block.h + border,
+            );
             let border = self.params.step_y / 1.5;
-            pst.add_box(block.x - border, block.y - border, block.x + block.w + border, block.y + block.h + border);
-
+            pst.add_box(
+                block.x - border,
+                block.y - border,
+                block.x + block.w + border,
+                block.y + block.h + border,
+            );
         }
 
         /*
@@ -325,11 +335,17 @@ impl LegalProblem {
 
     pub fn new_from(&self, positions: &Vec<LegalPosition>) -> LegalProblem {
         let mut new_lp = self.clone();
-        
+
         new_lp.blocks = Vec::new();
         for pos in positions {
-            new_lp.blocks.push(LegalBlock { tag: pos.block_tag, x: pos.x, y: pos.y, h: pos.h, w: pos.w });
-        }        
+            new_lp.blocks.push(LegalBlock {
+                tag: pos.block_tag,
+                x: pos.x,
+                y: pos.y,
+                h: pos.h,
+                w: pos.w,
+            });
+        }
 
         new_lp
     }
@@ -378,16 +394,22 @@ impl LegalProblem {
     pub fn rescale(&mut self) {
         // Determine total area
         let total_area = self.area();
-        let target_width = total_area / ((self.params.grid_y as f32)*self.params.step_y);
+        let target_width = total_area / ((self.params.grid_y as f32) * self.params.step_y);
 
         let bbox = self.bounds();
         let scale_x = target_width / bbox.dx();
         let target_height = self.params.grid_y as f32 * self.params.step_y;
 
         let scale_y = target_height / bbox.dy();
-        #[cfg(feature="ldbg")]
+        #[cfg(feature = "ldbg")]
         {
-            println!("Rescale {} {} to {} {}", bbox.dx(), bbox.dy(), target_width, target_height);
+            println!(
+                "Rescale {} {} to {} {}",
+                bbox.dx(),
+                bbox.dy(),
+                target_width,
+                target_height
+            );
             println!("Scale_x {} scale_y {}", scale_x, scale_y);
         }
 
@@ -540,13 +562,7 @@ enum GridErr {
 /// with the capability of matching an arbitrary point
 /// to the closest point in the grid.
 impl ScalarGrid {
-    pub fn new(
-        llx: f32,
-        lly: f32,
-        urx: f32,
-        ury: f32,
-        step_size: f32,
-    ) -> Self {
+    pub fn new(llx: f32, lly: f32, urx: f32, ury: f32, step_size: f32) -> Self {
         let rows = ((ury - lly) / step_size).ceil() as usize;
         let cols = ((urx - llx) / step_size).ceil() as usize;
         ScalarGrid {
@@ -577,7 +593,8 @@ impl ScalarGrid {
     pub fn get(&self, x: usize, y: usize) -> Result<f32, GridErr> {
         if x >= self.cols || y >= self.rows {
             Err(GridErr::OutOfBounds {
-                x, y,
+                x,
+                y,
                 w: self.cols,
                 h: self.rows,
             })
@@ -589,7 +606,8 @@ impl ScalarGrid {
     pub fn set(&mut self, x: usize, y: usize, val: f32) -> Result<f32, GridErr> {
         if x >= self.cols || y >= self.rows {
             Err(GridErr::OutOfBounds {
-                x, y,
+                x,
+                y,
                 w: self.cols,
                 h: self.rows,
             })
@@ -605,8 +623,10 @@ impl ScalarGrid {
 
     pub fn snap_to_grid(&self, x: f32, y: f32) -> (usize, usize) {
         (
-            (((x - self.llx) / self.step_size - (self.step_size / 2.0)).round() as usize).min(self.cols - 1),
-            (((y - self.lly) / self.step_size - (self.step_size / 2.0)) as usize).min(self.rows - 1),
+            (((x - self.llx) / self.step_size - (self.step_size / 2.0)).round() as usize)
+                .min(self.cols - 1),
+            (((y - self.lly) / self.step_size - (self.step_size / 2.0)) as usize)
+                .min(self.rows - 1),
         )
     }
 
@@ -627,9 +647,21 @@ impl ScalarGrid {
     pub fn integrate(&mut self) {
         for x in 0..self.cols {
             for y in 0..self.rows {
-                let A = if x > 0 { self.get(x - 1, y).unwrap() } else { 0.0 };
-                let B = if y > 0 { self.get(x, y - 1).unwrap() } else { 0.0 };
-                let C = if x > 0 && y > 0 { self.get(x - 1, y - 1).unwrap() } else { 0.0 };
+                let A = if x > 0 {
+                    self.get(x - 1, y).unwrap()
+                } else {
+                    0.0
+                };
+                let B = if y > 0 {
+                    self.get(x, y - 1).unwrap()
+                } else {
+                    0.0
+                };
+                let C = if x > 0 && y > 0 {
+                    self.get(x - 1, y - 1).unwrap()
+                } else {
+                    0.0
+                };
                 self.set(x, y, A + B - C + self.get(x, y).unwrap()).unwrap();
             }
         }
@@ -670,10 +702,7 @@ impl fmt::Display for AreaGrid {
 */
 
 impl AreaGrid {
-    pub fn new(
-        blocks: &[LegalBlock],
-        step_size: f32,
-    ) -> Self {
+    pub fn new(blocks: &[LegalBlock], step_size: f32) -> Self {
         // Get bounding box
         let mut bbox_llx = f32::INFINITY;
         let mut bbox_lly = f32::INFINITY;
@@ -686,13 +715,7 @@ impl AreaGrid {
             bbox_ury = bbox_ury.max(block.y + block.h);
         }
 
-        let mut grid = ScalarGrid::new(
-            bbox_llx,
-            bbox_lly,
-            bbox_urx,
-            bbox_ury,
-            step_size,
-        );
+        let mut grid = ScalarGrid::new(bbox_llx, bbox_lly, bbox_urx, bbox_ury, step_size);
 
         // Here, each block is encoded into the grid.
         for block in blocks {
@@ -711,18 +734,10 @@ impl AreaGrid {
         // Integrate again to get the summed area table
         grid.integrate();
 
-        AreaGrid {
-            grid
-        }
+        AreaGrid { grid }
     }
 
-    pub fn area(
-        &self,
-        llx: f32,
-        lly: f32,
-        urx: f32,
-        ury: f32,
-    ) -> f32 {
+    pub fn area(&self, llx: f32, lly: f32, urx: f32, ury: f32) -> f32 {
         let (llx, lly) = self.grid.snap_to_grid(llx, lly);
         let (urx, ury) = self.grid.snap_to_grid(urx, ury);
 
@@ -1240,7 +1255,7 @@ impl CutHeuristic for CenterCutHeuristic {
                 .iter()
                 .map(|b| blocks[*b].y + (blocks[*b].h / 2.0))
         }
-        
+
         cut_lines
             .map(|cut_coord| CutLine::new(blocks, region, horiaontal, cut_coord))
             .collect();
@@ -1399,10 +1414,7 @@ pub fn perimeter_heuristic(
 */
 
 /// Any direction works
-pub fn no_direction_heuristic(
-    blocks: &[LegalBlock],
-    region: &Region,
-) -> Directions {
+pub fn no_direction_heuristic(blocks: &[LegalBlock], region: &Region) -> Directions {
     Directions {
         vertical: true,
         horizontal: true,
@@ -1486,19 +1498,13 @@ pub fn cut_penalty(
 /// Filter out all cuts close to the edge of the region
 pub fn band_heuristic(
     band: f32, // A number between 0.0 and 1.0 (proportion of the region to accept)
-) -> impl Fn(
-    &[LegalBlock],
-    &Region,
-    &CutLine,
-) -> bool {
+) -> impl Fn(&[LegalBlock], &Region, &CutLine) -> bool {
     move |blocks, region, cut_line| {
-        let (center, span) = if !cut_line.horizontal {(
-            (region.llx + region.urx) / 2.0,
-            region.urx - region.llx,
-        )} else {(
-            (region.lly + region.ury) / 2.0,
-            region.ury - region.lly,
-        )};
+        let (center, span) = if !cut_line.horizontal {
+            ((region.llx + region.urx) / 2.0, region.urx - region.llx)
+        } else {
+            ((region.lly + region.ury) / 2.0, region.ury - region.lly)
+        };
 
         (cut_line.coord - center).abs() / (span / 2.0) <= band
     }
@@ -1511,8 +1517,15 @@ pub fn min_penalty_heuristic(
     cut_lines: (&[CutLine], &[CutLine]),
 ) -> Option<CutLine> {
     let error_msg = "Can't ger maximum penalty if penalties were not computed.";
-    cut_lines.0.iter().chain(cut_lines.1.iter())
-        .min_by(|a, b| a.penalty.expect(error_msg).total_cmp(&b.penalty.expect(error_msg)))
+    cut_lines
+        .0
+        .iter()
+        .chain(cut_lines.1.iter())
+        .min_by(|a, b| {
+            a.penalty
+                .expect(error_msg)
+                .total_cmp(&b.penalty.expect(error_msg))
+        })
         .cloned()
 }
 
@@ -1542,7 +1555,7 @@ pub struct CutLine {
     pub penalty: Option<f32>,
 }
 
-trait CutAndPenalize {
+pub trait CutAndPenalize {
     fn run(
         &mut self,
         blocks: &[LegalBlock],
@@ -1565,18 +1578,10 @@ type PenaltyHeuristic = &impl FnMut(
 ) -> ();
 */
 
-pub struct CutAndPenalizeCustom<C, P> 
+pub struct CutAndPenalizeCustom<C, P>
 where
-    C: Fn(
-        &[LegalBlock],
-        &Region,
-        &Directions,
-    ) -> (Vec<CutLine>, Vec<CutLine>),
-    P: FnMut(
-        &[LegalBlock],
-        &Region,
-        (&mut [CutLine], &mut [CutLine]),
-    ) -> (),
+    C: Fn(&[LegalBlock], &Region, &Directions) -> (Vec<CutLine>, Vec<CutLine>),
+    P: FnMut(&[LegalBlock], &Region, (&mut [CutLine], &mut [CutLine])) -> (),
 {
     cut_heuristic: C,
     penalty_heuristic: Option<P>,
@@ -1584,21 +1589,10 @@ where
 
 impl<C, P> CutAndPenalizeCustom<C, P>
 where
-    C: Fn(
-        &[LegalBlock],
-        &Region,
-        &Directions,
-    ) -> (Vec<CutLine>, Vec<CutLine>),
-    P: FnMut(
-        &[LegalBlock],
-        &Region,
-        (&mut [CutLine], &mut [CutLine]),
-    ) -> (),
+    C: Fn(&[LegalBlock], &Region, &Directions) -> (Vec<CutLine>, Vec<CutLine>),
+    P: FnMut(&[LegalBlock], &Region, (&mut [CutLine], &mut [CutLine])) -> (),
 {
-    pub fn new(
-        cut_heuristic: C,
-        mut penalty_heuristic: Option<P>,
-    ) -> Self {
+    pub fn new(cut_heuristic: C, mut penalty_heuristic: Option<P>) -> Self {
         Self {
             cut_heuristic,
             penalty_heuristic,
@@ -1608,16 +1602,8 @@ where
 
 impl<C, P> CutAndPenalize for CutAndPenalizeCustom<C, P>
 where
-    C: Fn(
-        &[LegalBlock],
-        &Region,
-        &Directions,
-    ) -> (Vec<CutLine>, Vec<CutLine>),
-    P: FnMut(
-        &[LegalBlock],
-        &Region,
-        (&mut [CutLine], &mut [CutLine]),
-    ) -> (),
+    C: Fn(&[LegalBlock], &Region, &Directions) -> (Vec<CutLine>, Vec<CutLine>),
+    P: FnMut(&[LegalBlock], &Region, (&mut [CutLine], &mut [CutLine])) -> (),
 {
     fn run(
         &mut self,
@@ -1639,10 +1625,10 @@ where
 pub struct CutAndPenalizeStreamlined<P>
 where
     P: Fn(
-        f32, // Area of left side
-        f32, // Area of right side
-        f32, // Cut penalty
-        f32, // Aspect ratio
+        f32,  // Area of left side
+        f32,  // Area of right side
+        f32,  // Cut penalty
+        f32,  // Aspect ratio
         bool, // Horizontal
     ) -> f32,
     /*
@@ -1661,10 +1647,10 @@ where
 impl<P> CutAndPenalizeStreamlined<P>
 where
     P: Fn(
-        f32, // Area of left side
-        f32, // Area of right side
-        f32, // Cut penalty
-        f32, // Aspect ratio
+        f32,  // Area of left side
+        f32,  // Area of right side
+        f32,  // Cut penalty
+        f32,  // Aspect ratio
         bool, // Horizontal
     ) -> f32,
     /*
@@ -1744,10 +1730,10 @@ where
 impl<P> CutAndPenalize for CutAndPenalizeStreamlined<P>
 where
     P: Fn(
-        f32, // Area of left side
-        f32, // Area of right side
-        f32, // Cut penalty
-        f32, // Aspect ratio
+        f32,  // Area of left side
+        f32,  // Area of right side
+        f32,  // Cut penalty
+        f32,  // Aspect ratio
         bool, // Horizontal
     ) -> f32,
     /*
@@ -1769,27 +1755,27 @@ where
 
         // Find biggest blocks
         let mut biggest = region.blocks.clone();
-        biggest.sort_by(
-            |a, b| (blocks[*b].w * blocks[*b].h).total_cmp(&(blocks[*a].w * blocks[*a].h))
-        );
+        biggest.sort_by(|a, b| {
+            (blocks[*b].w * blocks[*b].h).total_cmp(&(blocks[*a].w * blocks[*a].h))
+        });
         biggest.truncate(self.num_big_blocks);
 
         // Sort blocks from left to right
         let mut sorted = region.blocks.clone();
-        sorted.sort_by(
-            |a, b| (blocks[*a].x + (blocks[*a].w / 2.0)).total_cmp(&(blocks[*b].x + (blocks[*b].w / 2.0)))
-        );
-        sorted.dedup_by_key(
-            |b| blocks[*b].x + (blocks[*b].w / 2.0)
-        );
+        sorted.sort_by(|a, b| {
+            (blocks[*a].x + (blocks[*a].w / 2.0)).total_cmp(&(blocks[*b].x + (blocks[*b].w / 2.0)))
+        });
+        // No need to de-duplicate -- we could miss a block!
+        // sorted.dedup_by_key(
+        //     |b| blocks[*b].x + (blocks[*b].w / 2.0)
+        // );
 
         // Make the walk from left to right
         if sorted.len() == 2 {
             cuts_v.push(CutLine {
-                coord: (
-                    (blocks[sorted[0]].x + (blocks[sorted[0]].w / 2.0)) +
-                    (blocks[sorted[1]].x + (blocks[sorted[1]].w / 2.0))
-                ) / 2.0,
+                coord: ((blocks[sorted[0]].x + (blocks[sorted[0]].w / 2.0))
+                    + (blocks[sorted[1]].x + (blocks[sorted[1]].w / 2.0)))
+                    / 2.0,
                 horizontal: false,
                 penalty: Some((self.penalty)(
                     blocks[sorted[0]].w * blocks[sorted[0]].h,
@@ -1804,7 +1790,8 @@ where
             let mut right_area = sorted
                 .iter()
                 .map(|b| blocks[*b].w * blocks[*b].h)
-                .sum::<f32>() - left_area;
+                .sum::<f32>()
+                - left_area;
             for i in 1..(sorted.len() - 1) {
                 let x = blocks[sorted[i]].x + (blocks[sorted[i]].w / 2.0);
                 let area = blocks[sorted[i]].w * blocks[sorted[i]].h;
@@ -1838,23 +1825,25 @@ where
                 });
             }
         }
-        
+
         // Sort blocks from bottom to top
         let mut sorted = region.blocks.clone();
-        sorted.sort_by(
-            |a, b| (blocks[*a].y + (blocks[*a].h / 2.0)).total_cmp(&(blocks[*b].y + (blocks[*b].h / 2.0)))
-        );
-        sorted.dedup_by_key(
-            |b| blocks[*b].y + (blocks[*b].h / 2.0)
-        );
+        sorted.sort_by(|a, b| {
+            (blocks[*a].y + (blocks[*a].h / 2.0)).total_cmp(&(blocks[*b].y + (blocks[*b].h / 2.0)))
+        });
+        // The list should contain all of the blocks -- and we move one block over at each
+        // step along the way.  No need to dedup if two blocks have the same X or Y location,
+        // and this could result in a block going "missing"
+        // sorted.dedup_by_key(
+        //     |b| blocks[*b].y + (blocks[*b].h / 2.0)
+        // );
 
         // Make the walk from bottom to top
         if sorted.len() == 2 {
             cuts_v.push(CutLine {
-                coord: (
-                    (blocks[sorted[0]].y + (blocks[sorted[0]].h / 2.0)) +
-                    (blocks[sorted[1]].y + (blocks[sorted[1]].h / 2.0))
-                ) / 2.0,
+                coord: ((blocks[sorted[0]].y + (blocks[sorted[0]].h / 2.0))
+                    + (blocks[sorted[1]].y + (blocks[sorted[1]].h / 2.0)))
+                    / 2.0,
                 horizontal: true,
                 penalty: Some((self.penalty)(
                     blocks[sorted[0]].w * blocks[sorted[0]].h,
@@ -1869,7 +1858,8 @@ where
             let mut top_area = sorted
                 .iter()
                 .map(|b| blocks[*b].w * blocks[*b].h)
-                .sum::<f32>() - bottom_area;
+                .sum::<f32>()
+                - bottom_area;
             for i in 1..(sorted.len() - 1) {
                 let y = blocks[sorted[i]].y + (blocks[sorted[i]].h / 2.0);
                 let area = blocks[sorted[i]].w * blocks[sorted[i]].h;
@@ -1908,18 +1898,8 @@ where
     }
 }
 
-pub fn streamlined_penalty(
-    direction_factor: f32,
-) -> impl Fn(
-    f32, f32, f32, f32, bool,
-) -> f32 {
-    move |
-        left_area,
-        right_area,
-        cut_penalty,
-        aspect_ratio,
-        horizontal,
-    | {
+pub fn streamlined_penalty(direction_factor: f32) -> impl Fn(f32, f32, f32, f32, bool) -> f32 {
+    move |left_area, right_area, cut_penalty, aspect_ratio, horizontal| {
         let area_penalty = (right_area - left_area).abs();
         let direction_penalty = if !horizontal {
             1.0
@@ -1930,11 +1910,7 @@ pub fn streamlined_penalty(
     }
 }
 
-pub fn to_sharp(
-    blocks: &[LegalBlock],
-    regions: &[Region],
-    comments: Vec<String>,
-) -> String {
+pub fn to_sharp(blocks: &[LegalBlock], regions: &[Region], comments: Vec<String>) -> String {
     let mut internal_lines = Vec::with_capacity(regions.len());
     let mut leaf_lines = Vec::with_capacity(regions.len());
     for (id, region) in regions.iter().enumerate() {
@@ -1952,19 +1928,31 @@ pub fn to_sharp(
 
             internal_lines.push(format!(
                 "{} {} 2 {} {} {} {} {} 0\n{} {}\n",
-                id, vh, region.blocks.len(),
-                region.llx, region.lly,
-                region.urx, region.ury,
-                region.left.unwrap(), region.right.unwrap(),
+                id,
+                vh,
+                region.blocks.len(),
+                region.llx,
+                region.lly,
+                region.urx,
+                region.ury,
+                region.left.unwrap(),
+                region.right.unwrap(),
             ));
         } else {
             leaf_lines.push(format!(
                 "{} H 0 {} {} {} {} {} 0\n{}",
-                id, region.blocks.len(),
-                region.llx, region.lly,
-                region.urx, region.ury,
-                region.blocks.iter()
-                    .map(|b| format!("{} {} {}\n", *b,
+                id,
+                region.blocks.len(),
+                region.llx,
+                region.lly,
+                region.urx,
+                region.ury,
+                region
+                    .blocks
+                    .iter()
+                    .map(|b| format!(
+                        "{} {} {}\n",
+                        *b,
                         blocks[*b].x + (blocks[*b].w / 2.0),
                         blocks[*b].y + (blocks[*b].h / 2.0),
                     ))
@@ -1977,7 +1965,7 @@ pub fn to_sharp(
         comments.len() +
         1 + // for the total number of nodes
         internal_lines.len() +
-        leaf_lines.len()
+        leaf_lines.len(),
     );
 
     for line in comments {
@@ -1997,35 +1985,149 @@ pub fn to_sharp(
     all_lines.into_iter().collect()
 }
 
+// We're checking aspect ratio here -- largest
+// dimension over smaller to get the penalty
+fn max_ratio(a: f32, b: f32) -> f32 {
+    if a > b {
+        return a / b;
+    }
+    b / a
+}
+
+// If we split a region, we have some percentage of the area
+// on the left, and some percentage on the right.  The bias
+// is the area on the left, divided by the total area.
+// If we split exactly evenly, that's the best spot -- but if
+// the region we split is a tall vertical area, splitting down
+// the middle vertically is worse than splitting somewhere
+// horizontally.
+// We use the max ratio to find the penalty of the split.
+// If it's 1:3 or 3:1, both should wind up with a penalty
+// of "3" -- so it's the larger over the smaller
+fn ar_penalty(bias: f32, split_dimension: f32, alternate_dimension: f32) -> f32 {
+    let a = split_dimension * bias;
+
+    let r1 = max_ratio(a, alternate_dimension);
+    let r2 = max_ratio(split_dimension - a, alternate_dimension);
+    // println!("Bias {bias}  {wide}x{tall} --> {r1} {r2} {}", r1 * r2);
+
+    r1 * r2
+}
+
+fn block_area(block: &LegalBlock) -> f32 {
+    block.w * block.h
+}
+
+// find_cut scans through the blocks that belong to a
+// region, looking for the best place to split it into two
+// groups.  The cut will be either horizontal (with the blocks
+// being ordered by the Y axis, bottom to top), or not
+// horizontal (a vertical cut, blocks ordered along X axis).
+//
+// Passed in is the shape of the region we are splitting -- ideally,
+// we avoid generating long and thin regions, either horizontally
+// or vertically.
+//
+// Each potential cut location is considered, such that there
+// is at least one element on either side of the cut.  The
+// return is the minimum penalty found, the list of blocks
+// on each side, and the total areas of the blocks on each
+// side.
+fn find_cut(
+    blocks: &[LegalBlock],
+    region: &Region,
+    horizontal: bool,
+    width: f32,
+    height: f32,
+) -> (f32, Vec<usize>, f32, Vec<usize>, f32) {
+    let mut a_area = 0.0;
+    let mut b_area = 0.0;
+    for b in &region.blocks {
+        b_area += blocks[*b].w * blocks[*b].h;
+    }
+    let total_area = b_area;
+
+    // Blocks that we're going to split, ordered left-right or bottom-top
+    let mut block_order = region.blocks.clone();
+    if horizontal {
+        block_order.sort_by(|a, b| {
+            (blocks[*a].y + blocks[*a].h / 2.0).total_cmp(&(blocks[*b].y + blocks[*b].h / 2.0))
+        });
+    } else {
+        block_order.sort_by(|a, b| {
+            (blocks[*a].x + blocks[*a].w / 2.0).total_cmp(&(blocks[*b].x + blocks[*b].w / 2.0))
+        });
+    }
+
+    // Best split point initially -- *after* block 0 in the list
+    let mut best = 0;
+    a_area += block_area(&blocks[block_order[0]]);
+    let mut best_penalty;
+    if horizontal {
+        best_penalty = ar_penalty(a_area / total_area, height, width);
+    } else {
+        best_penalty = ar_penalty(a_area / total_area, width, height);
+    }
+
+    // We check the potential split point,
+    for split in 1..(block_order.len() - 1) {
+        // Add block to the left, subtract from the right
+        let a = block_area(&blocks[block_order[split]]);
+        a_area += a;
+        // b_area -= a;
+
+        // Compute the penalty for splitting up o split point
+        let penalty;
+        if horizontal {
+            penalty = ar_penalty(a_area / total_area, height, width);
+        } else {
+            penalty = ar_penalty(a_area / total_area, width, height);
+        }
+
+        // Update the "best" if needed
+        if penalty < best_penalty {
+            best_penalty = penalty;
+            best = split;
+        }
+    }
+
+    // Now get the actual split locations, and the list of blocks on
+    // each side
+    a_area = 0.0;
+    b_area = 0.0;
+    let mut a_block_list = Vec::new();
+    let mut b_block_list = Vec::new();
+    for i in 0..block_order.len() {
+        let a = block_area(&blocks[block_order[i]]);
+        if i <= best {
+            a_area += a;
+            a_block_list.push(block_order[i]);
+        } else {
+            b_area += a;
+            b_block_list.push(block_order[i]);
+        }
+    }
+
+    println!(
+        "SPLIT {:8.5}   {} {} blocks {} {} blocks  {}=={} total",
+        best_penalty,
+        a_area,
+        a_block_list.len(),
+        b_area,
+        b_block_list.len(),
+        a_area + b_area,
+        total_area
+    );
+
+    (best_penalty, a_block_list, a_area, b_block_list, b_area)
+}
+
 pub fn recursive_bisection(
     blocks: &[LegalBlock],
-    direction_heuristic: impl Fn(
-        &[LegalBlock],
-        &Region,
-    ) -> Directions,
+    direction_heuristic: impl Fn(&[LegalBlock], &Region) -> Directions,
     mut cut_and_penalize: impl CutAndPenalize,
-    /*
-    cut_heuristic: &impl Fn(
-        &[LegalBlock],
-        &Region,
-        &Directions,
-    ) -> (Vec<CutLine>, Vec<CutLine>),
-    mut penalty_heuristic: Option<&mut impl FnMut (
-        &[LegalBlock],
-        &Region,
-        (&mut [CutLine], &mut [CutLine]),
-    ) -> ()>,
-    */
-    filter_heuristics: &[&dyn Fn(
-        &[LegalBlock],
-        &Region,
-        &CutLine,
-    ) -> bool],
-    selection_heuristic: impl Fn(
-        &[LegalBlock],
-        &Region,
-        (&[CutLine], &[CutLine]),
-    ) -> Option<CutLine>,
+    filter_heuristics: &[&dyn Fn(&[LegalBlock], &Region, &CutLine) -> bool],
+    selection_heuristic: impl Fn(&[LegalBlock], &Region, (&[CutLine], &[CutLine])) -> Option<CutLine>,
     max_depth: Option<usize>,
 ) -> Vec<Region> {
     //let block_indices: Vec<usize> = (0..blocks.len()).collect();
@@ -2043,6 +2145,7 @@ pub fn recursive_bisection(
         outer_ury = outer_ury.max(block.y + block.h);
     }
 
+    
     // Add first region
     regions.push(Region {
         kind: RegionKind::Leaf,
@@ -2069,154 +2172,172 @@ pub fn recursive_bisection(
     while let Some(frame) = stack.pop() {
         let region_index = frame.region_index;
         let depth = frame.depth;
-        /*
-        let blocks_in_region = blocks
-            .iter()
-            .filter(|b| {
-                let intersect_llx = regions[region_index].llx.max(b.x);
-                let intersect_lly = regions[region_index].lly.max(b.y);
-                let intersect_urx = regions[region_index].urx.min(b.x + b.w);
-                let intersect_ury = regions[region_index].ury.min(b.y + b.h);
+        let dx = regions[region_index].urx - regions[region_index].llx;
+        let dy = regions[region_index].ury - regions[region_index].lly;
 
-                (intersect_llx < intersect_urx) && (intersect_lly < intersect_ury)
-            })
-            .count();
-        */
-
-        // Count the number of blocks whose center is in the region
-        let blocks_in_region = blocks
-            .iter()
-            .filter(|b| {
-                let center_x = b.x + (b.w / 2.0);
-                let center_y = b.y + (b.h / 2.0);
-
-                (center_x >= regions[region_index].llx) &&
-                    (center_x < regions[region_index].urx) &&
-                    (center_y >= regions[region_index].lly) &&
-                    (center_y < regions[region_index].ury)
-            })
-            .count();
-
-        println!("blocks_in_region: {blocks_in_region}");
-        println!("regions[region_index].blocks.len(): {}", regions[region_index].blocks.len());
+        // BLOCKS IN THE REGION ARE ALREADY KNOWN
+        let blocks_in_region = regions[region_index].blocks.len();
+        println!("*REGION {}  {:6.1} x {:6.1}   {} blocks_in_region", region_index, dx, dy, blocks_in_region);
+        println!(
+            "regions[region_index].blocks.len(): {}",
+            regions[region_index].blocks.len()
+        );
         // If the region contains only one block
         if regions[region_index].blocks.len() <= 1 || depth >= max_depth.unwrap_or(usize::MAX) {
             println!(
                 "Base case reached: (regions[region_index].blocks.len(), depth) = ({}, {})",
-                regions[region_index].blocks.len(), depth,
+                regions[region_index].blocks.len(),
+                depth,
             );
             continue;
         }
 
-        // Compute cuts
-        let directions = direction_heuristic(blocks, &regions[region_index]);
+        println!("Region {}  {} x {}", region_index, dx, dy);
+        let (hpenalty, h_a, h_area_a, h_b, h_area_b) =
+            find_cut(blocks, &regions[region_index], true, dx, dy);
+        let (vpenalty, v_a, v_area_a, v_b, v_area_b) =
+            find_cut(blocks, &regions[region_index], false, dx, dy);
 
-        let (mut cuts_v, mut cuts_h) = cut_and_penalize.run(
-            blocks,
-            &regions[region_index],
-            &directions,
-        );
+        println!("hpenalty {} vpenalty {}", hpenalty, vpenalty);
 
-        /*
-        let (mut cuts_v, mut cuts_h) = cut_heuristic(blocks, &regions[region_index], &directions);
+        // return Vec::new();
 
-        // If there is a penalty heuristic, then apply it to the cuts
-        if let Some(penalty_heuristic) = &mut penalty_heuristic {
-            penalty_heuristic(blocks, &regions[region_index], (&mut cuts_v, &mut cuts_h));
+        let cut;
+        let a_blocks;
+        let b_blocks;
+        let reg = &regions[region_index];
+        if hpenalty < vpenalty {
+            // Horizontal split is better
+            let coord = reg.lly + dy * (h_area_a / (h_area_a + h_area_b));
+            cut = CutLine {
+                coord: coord,
+                horizontal: true,
+                penalty: Some(hpenalty),
+            };
+            a_blocks = h_a;
+            b_blocks = h_b;
+        } else {
+            let coord = reg.llx + dx * (v_area_a / (v_area_a + v_area_b));
+            // vertical split is better
+            cut = CutLine {
+                coord: coord,
+                horizontal: false,
+                penalty: Some(vpenalty),
+            };
+            a_blocks = v_a;
+            b_blocks = v_b;
         }
-        */
-        
-        // Apply each filter heuristic one at a time.
-        for filter_heuristic in filter_heuristics {
-            cuts_v = cuts_v
-                .into_iter()
-                .filter(|c| filter_heuristic(blocks, &regions[region_index], c))
-                .collect();
 
-            cuts_h = cuts_h
-                .into_iter()
-                .filter(|c| filter_heuristic(blocks, &regions[region_index], c))
-                .collect();
-        }
-        
-        // Make the final selection
-        let Some(cut) = selection_heuristic(blocks, &regions[region_index], (&cuts_v, &cuts_h)) else {
-            continue;
-        };
+        // // Compute cuts
+        // let directions = direction_heuristic(blocks, &regions[region_index]);
+
+        // let (mut cuts_v, mut cuts_h) =
+        //     cut_and_penalize.run(blocks, &regions[region_index], &directions);
+
+        // /*
+        // let (mut cuts_v, mut cuts_h) = cut_heuristic(blocks, &regions[region_index], &directions);
+
+        // // If there is a penalty heuristic, then apply it to the cuts
+        // if let Some(penalty_heuristic) = &mut penalty_heuristic {
+        //     penalty_heuristic(blocks, &regions[region_index], (&mut cuts_v, &mut cuts_h));
+        // }
+        // */
+        // // Apply each filter heuristic one at a time.
+        // for filter_heuristic in filter_heuristics {
+        //     cuts_v = cuts_v
+        //         .into_iter()
+        //         .filter(|c| filter_heuristic(blocks, &regions[region_index], c))
+        //         .collect();
+
+        //     cuts_h = cuts_h
+        //         .into_iter()
+        //         .filter(|c| filter_heuristic(blocks, &regions[region_index], c))
+        //         .collect();
+        // }
+
+        // // Make the final selection
+        // let Some(cut) = selection_heuristic(blocks, &regions[region_index], (&cuts_v, &cuts_h))
+        // else {
+        //     continue;
+        // };
 
         println!("cut: {cut:?}");
 
         // Compute the lower-left and upper-right coordinates of the new child regions
-        let (A_llx, A_lly, A_urx, A_ury) = if !cut.horizontal {(
-            regions[region_index].llx,
-            regions[region_index].lly,
-            cut.coord,
-            regions[region_index].ury,
-        )} else {(
-            regions[region_index].llx,
-            regions[region_index].lly,
-            regions[region_index].urx,
-            cut.coord,
-        )};
-        let (B_llx, B_lly, B_urx, B_ury) = if !cut.horizontal {(
-            cut.coord,
-            regions[region_index].lly,
-            regions[region_index].urx,
-            regions[region_index].ury
-        )} else {(
-            regions[region_index].llx,
-            cut.coord,
-            regions[region_index].urx,
-            regions[region_index].ury,
-        )};
+        let (a_llx, a_lly, a_urx, a_ury);
+        let (b_llx, b_lly, b_urx, b_ury);        
+        if cut.horizontal {
+            // Horizontal cut, so Y dimensions change
+            a_llx = reg.llx;
+            a_lly = reg.lly;
+            a_urx = reg.urx;
+            a_ury = cut.coord;
 
-        let (left_blocks, right_blocks): (Vec<usize>, Vec<usize>) = if !cut.horizontal {
-            regions[region_index].blocks.iter()
-                .partition(|b| {
-                    let center = blocks[**b].x + (blocks[**b].w / 2.0);
-                    center < cut.coord
-                })
+            b_llx = reg.llx;
+            b_lly = a_ury;
+            b_urx = reg.urx;
+            b_ury = reg.ury;
         } else {
-            regions[region_index].blocks.iter()
-                .partition(|b| {
-                    let center = blocks[**b].y + (blocks[**b].h / 2.0);
-                    center < cut.coord
-                })
-        };
+            // Vertical cut, so X dimensions change
+            a_llx = reg.llx;
+            a_lly = reg.lly;
+            a_urx = cut.coord;
+            a_ury = reg.ury;
+
+            b_llx = a_urx;
+            b_lly = reg.lly;
+            b_urx = reg.urx;
+            b_ury = reg.ury;
+        }
+
+        // No need to actualy move the blocks -- we're just trying to find
+        // cut lines, and we find the bounding box around things each time.
+
+        // let (left_blocks, right_blocks): (Vec<usize>, Vec<usize>) = if !cut.horizontal {
+        //     regions[region_index].blocks.iter().partition(|b| {
+        //         let center = blocks[**b].x + (blocks[**b].w / 2.0);
+        //         center < cut.coord
+        //     })
+        // } else {
+        //     regions[region_index].blocks.iter().partition(|b| {
+        //         let center = blocks[**b].y + (blocks[**b].h / 2.0);
+        //         center < cut.coord
+        //     })
+        // };
 
         // Create the regions
-        let A = Region {
+        let a_region = Region {
             kind: RegionKind::Leaf,
             left: None,
             right: None,
             subregions: Vec::new(),
-            blocks: left_blocks,
+            blocks: a_blocks,
             parent: Some(region_index),
             cut_coord: None,
-            llx: A_llx,
-            lly: A_lly,
-            urx: A_urx,
-            ury: A_ury,
+            llx: a_llx,
+            lly: a_lly,
+            urx: a_urx,
+            ury: a_ury,
         };
-        let B = Region {
+        let b_region = Region {
             kind: RegionKind::Leaf,
             left: None,
             right: None,
             subregions: Vec::new(),
-            blocks: right_blocks,
+            blocks: b_blocks,
             parent: Some(region_index),
             cut_coord: None,
-            llx: B_llx,
-            lly: B_lly,
-            urx: B_urx,
-            ury: B_ury,
+            llx: b_llx,
+            lly: b_lly,
+            urx: b_urx,
+            ury: b_ury,
         };
 
         // Append the regions to the list, saving their indices
-        let A_i = regions.len();
-        let B_i = regions.len() + 1;
-        regions.push(A);
-        regions.push(B);
+        let a_index = regions.len();
+        let b_index = regions.len() + 1;
+        regions.push(a_region);
+        regions.push(b_region);
 
         // Update parent region
         regions[region_index].kind = if cut.horizontal {
@@ -2224,8 +2345,8 @@ pub fn recursive_bisection(
         } else {
             RegionKind::Vertical
         };
-        regions[region_index].left = Some(A_i);
-        regions[region_index].right = Some(B_i);
+        regions[region_index].left = Some(a_index);
+        regions[region_index].right = Some(b_index);
         regions[region_index].cut_coord = Some(cut.coord);
 
         // Update the new regions' ancestors
@@ -2233,17 +2354,17 @@ pub fn recursive_bisection(
         // of its ancestors.)
         let mut ancestor = Some(frame.region_index);
         while let Some(a) = ancestor {
-            regions[a].subregions.push(A_i);
-            regions[a].subregions.push(B_i);
+            regions[a].subregions.push(a_index);
+            regions[a].subregions.push(b_index);
             ancestor = regions[a].parent;
         }
 
         stack.push(StackFrame {
-            region_index: A_i,
+            region_index: a_index,
             depth: frame.depth + 1,
         });
         stack.push(StackFrame {
-            region_index: B_i,
+            region_index: b_index,
             depth: frame.depth + 1,
         });
 
@@ -2274,16 +2395,14 @@ pub fn draw_bisection(
         outer.addpoint(b.x + b.w, b.y + b.h);
     }
 
-    let (outer_w, outer_h) = (
-        outer.urx - outer.llx,
-        outer.ury - outer.lly,
-    );
+    let (outer_w, outer_h) = (outer.urx - outer.llx, outer.ury - outer.lly);
 
     pst.set_color(0.0, 0.0, 0.0, 1.0);
 
-    for (llx, lly, urx, ury) in regions.iter().map(|region|
-        (region.llx, region.lly, region.urx, region.ury)
-    ) {
+    for (llx, lly, urx, ury) in regions
+        .iter()
+        .map(|region| (region.llx, region.lly, region.urx, region.ury))
+    {
         pst.add_box(
             (llx / outer_w) * dimensions.0,
             (lly / outer_h) * dimensions.1,
@@ -2313,11 +2432,11 @@ pub fn draw_something() {
             lly: 100.0,
             urx: 200.0,
             ury: 200.0,
-        }
+        },
     ];
 
     pst.set_color(0.0, 0.0, 0.0, 1.0);
-    
+
     for bbox in bboxes {
         pst.add_box(bbox.llx, bbox.lly, bbox.urx, bbox.ury);
     }
@@ -2334,7 +2453,7 @@ pub fn cut_problem(
     max_ratio: f32,
 ) -> Vec<LegalProblem> {
     let groups = recursive_bisection(&lp.blocks, max_depth, min_ratio, max_ratio);
-    
+
     groups
         .into_iter()
         .map(|region| {
@@ -2375,18 +2494,10 @@ impl BBox {
             }
         }
 
-        BBox {
-            llx,
-            lly,
-            urx,
-            ury,
-        }
+        BBox { llx, lly, urx, ury }
     }
 
-    pub fn intersect(
-        &self,
-        other: &BBox,
-    ) -> BBox {
+    pub fn intersect(&self, other: &BBox) -> BBox {
         BBox {
             llx: self.llx.max(other.llx),
             lly: self.lly.max(other.lly),
@@ -2403,10 +2514,7 @@ struct Simple2DArray {
 }
 
 impl Simple2DArray {
-    pub fn new(
-        cols: usize,
-        rows: usize,
-    ) -> Self {
+    pub fn new(cols: usize, rows: usize) -> Self {
         Simple2DArray {
             cols,
             rows,
@@ -2414,23 +2522,14 @@ impl Simple2DArray {
         }
     }
 
-    pub fn get(
-        &self,
-        x: usize,
-        y: usize,
-    ) -> f32 {
+    pub fn get(&self, x: usize, y: usize) -> f32 {
         assert!(x < self.cols);
         assert!(y < self.rows);
 
         self.data[y * self.cols + x]
     }
 
-    pub fn set(
-        &mut self,
-        x: usize,
-        y: usize,
-        val: f32,
-    ) {
+    pub fn set(&mut self, x: usize, y: usize, val: f32) {
         assert!(x < self.cols);
         assert!(y < self.rows);
 
@@ -2551,82 +2650,62 @@ impl CutGrid {
         for (block_index, block) in blocks.iter().enumerate() {
             let peak = (block.w * block.h) / 2.0;
             let delta_m = peak / (block.w / 2.0);
-            breakpoints_vx.push(
-                Breakpoint {
-                    coord: block.x,
-                    block: block_index,
-                    delta_m: Some(delta_m),
-                    kind: BreakpointKind::Start,
-                }
-            );
-            breakpoints_vx.push(
-                Breakpoint {
-                    coord: block.x + (block.w / 2.0),
-                    block: block_index,
-                    delta_m: Some(-2.0 * delta_m),
-                    kind: BreakpointKind::Center,
-                }
-            );
-            breakpoints_vx.push(
-                Breakpoint {
-                    coord: block.x + block.w,
-                    block: block_index,
-                    delta_m: Some(delta_m),
-                    kind: BreakpointKind::End,
-                }
-            );
+            breakpoints_vx.push(Breakpoint {
+                coord: block.x,
+                block: block_index,
+                delta_m: Some(delta_m),
+                kind: BreakpointKind::Start,
+            });
+            breakpoints_vx.push(Breakpoint {
+                coord: block.x + (block.w / 2.0),
+                block: block_index,
+                delta_m: Some(-2.0 * delta_m),
+                kind: BreakpointKind::Center,
+            });
+            breakpoints_vx.push(Breakpoint {
+                coord: block.x + block.w,
+                block: block_index,
+                delta_m: Some(delta_m),
+                kind: BreakpointKind::End,
+            });
         }
-        breakpoints_vx.sort_by(
-            |bp1, bp2| bp1.coord.total_cmp(&bp2.coord)
-        );
+        breakpoints_vx.sort_by(|bp1, bp2| bp1.coord.total_cmp(&bp2.coord));
 
         // Initialize list of breakpoints on the y-axis on the vertical grid
         let mut breakpoints_vy = Vec::with_capacity(blocks.len() * 2);
         for (block_index, block) in blocks.iter().enumerate() {
-            breakpoints_vy.push(
-                Breakpoint {
-                    coord: block.y,
-                    block: block_index,
-                    delta_m: None,
-                    kind: BreakpointKind::Start,
-                }
-            );
-            breakpoints_vy.push(
-                Breakpoint {
-                    coord: block.y + block.h,
-                    block: block_index,
-                    delta_m: None,
-                    kind: BreakpointKind::End,
-                }
-            );
+            breakpoints_vy.push(Breakpoint {
+                coord: block.y,
+                block: block_index,
+                delta_m: None,
+                kind: BreakpointKind::Start,
+            });
+            breakpoints_vy.push(Breakpoint {
+                coord: block.y + block.h,
+                block: block_index,
+                delta_m: None,
+                kind: BreakpointKind::End,
+            });
         }
-        breakpoints_vy.sort_by(
-            |bp1, bp2| bp1.coord.total_cmp(&bp2.coord)
-        );
+        breakpoints_vy.sort_by(|bp1, bp2| bp1.coord.total_cmp(&bp2.coord));
 
         // Initialize list of breakpoints in the x-axis of the horizontal grid
         let mut breakpoints_hx = Vec::with_capacity(blocks.len() * 2);
         for (block_index, block) in blocks.iter().enumerate() {
-            breakpoints_hx.push(
-                Breakpoint {
-                    coord: block.x,
-                    block: block_index,
-                    delta_m: None,
-                    kind: BreakpointKind::Start,
-                }
-            );
-            breakpoints_hx.push(
-                Breakpoint {
-                    coord: block.x + block.w,
-                    block: block_index,
-                    delta_m: None,
-                    kind: BreakpointKind::End,
-                }
-            );
+            breakpoints_hx.push(Breakpoint {
+                coord: block.x,
+                block: block_index,
+                delta_m: None,
+                kind: BreakpointKind::Start,
+            });
+            breakpoints_hx.push(Breakpoint {
+                coord: block.x + block.w,
+                block: block_index,
+                delta_m: None,
+                kind: BreakpointKind::End,
+            });
         }
-        breakpoints_hx.sort_by(
-            |bp1, bp2| bp1.coord.total_cmp(&bp2.coord)
-        );
+        breakpoints_hx.sort_by(|bp1, bp2| bp1.coord.total_cmp(&bp2.coord));
 
         // Initialize list of breakpoints in the y-axis of the horizontal grid
         let mut breakpoints_hy = Vec::with_capacity(blocks.len() * 3);
@@ -2634,35 +2713,27 @@ impl CutGrid {
             let peak = (block.w * block.h) / 2.0;
             let delta_m = peak / (block.h / 2.0);
 
-            breakpoints_hy.push(
-                Breakpoint {
-                    coord: block.y,
-                    block: block_index,
-                    delta_m: Some(delta_m),
-                    kind: BreakpointKind::Start,
-                }
-            );
-            breakpoints_hy.push(
-                Breakpoint {
-                    coord: block.y + (block.h / 2.0),
-                    block: block_index,
-                    delta_m: Some(-2.0 * delta_m),
-                    kind: BreakpointKind::Center,
-                }
-            );
-            breakpoints_hy.push(
-                Breakpoint {
-                    coord: block.y + block.h,
-                    block: block_index,
-                    delta_m: Some(delta_m),
-                    kind: BreakpointKind::End,
-                }
-            );
+            breakpoints_hy.push(Breakpoint {
+                coord: block.y,
+                block: block_index,
+                delta_m: Some(delta_m),
+                kind: BreakpointKind::Start,
+            });
+            breakpoints_hy.push(Breakpoint {
+                coord: block.y + (block.h / 2.0),
+                block: block_index,
+                delta_m: Some(-2.0 * delta_m),
+                kind: BreakpointKind::Center,
+            });
+            breakpoints_hy.push(Breakpoint {
+                coord: block.y + block.h,
+                block: block_index,
+                delta_m: Some(delta_m),
+                kind: BreakpointKind::End,
+            });
         }
-        breakpoints_hy.sort_by(
-            |bp1, bp2| bp1.coord.total_cmp(&bp2.coord)
-        );
-       
+        breakpoints_hy.sort_by(|bp1, bp2| bp1.coord.total_cmp(&bp2.coord));
+
         /*
         println!("breakpoints_hy:");
         for bp in &breakpoints_hy {
@@ -2677,16 +2748,10 @@ impl CutGrid {
         let hy_ticks: Vec<f32> = breakpoints_hy.iter().map(|bp| bp.coord).collect();
 
         // Initialize key points for the vertical grid
-        let mut key_points_v = Simple2DArray::new(
-            blocks.len() * 3,
-            blocks.len() * 2,
-        );
+        let mut key_points_v = Simple2DArray::new(blocks.len() * 3, blocks.len() * 2);
 
         // Initialize key points for the horizontal grid
-        let mut key_points_h = Simple2DArray::new(
-            blocks.len() * 2,
-            blocks.len() * 3
-        );
+        let mut key_points_h = Simple2DArray::new(blocks.len() * 2, blocks.len() * 3);
 
         // Initialize bitmap of blocks in the current row (vertical grid)
         let mut current_blocks = vec![false; blocks.len()];
@@ -2697,10 +2762,10 @@ impl CutGrid {
             match breakpoints_vy[i].kind {
                 BreakpointKind::Start => {
                     current_blocks[breakpoints_vy[i].block] = true;
-                },
+                }
                 BreakpointKind::End => {
                     current_blocks[breakpoints_vy[i].block] = false;
-                },
+                }
                 BreakpointKind::Center => (),
             }
 
@@ -2708,10 +2773,8 @@ impl CutGrid {
                 // If the current breakpoint corresponds to a
                 // block that is in this row
                 if current_blocks[breakpoints_vx[j].block] {
-                    let prop = (
-                        (vy_ticks[i + 1] - vy_ticks[i]) /
-                        blocks[breakpoints_vx[j].block].h
-                    );
+                    let prop =
+                        ((vy_ticks[i + 1] - vy_ticks[i]) / blocks[breakpoints_vx[j].block].h);
                     key_points_v.set(j, i, breakpoints_vx[j].delta_m.unwrap() * prop);
                 }
             }
@@ -2736,10 +2799,10 @@ impl CutGrid {
             match breakpoints_hx[j].kind {
                 BreakpointKind::Start => {
                     current_blocks[breakpoints_hx[j].block] = true;
-                },
+                }
                 BreakpointKind::End => {
                     current_blocks[breakpoints_hx[j].block] = false;
-                },
+                }
                 BreakpointKind::Center => (),
             }
 
@@ -2747,10 +2810,8 @@ impl CutGrid {
                 // If the current breakpoint corresponds to a
                 // block that is in this column
                 if current_blocks[breakpoints_hy[i].block] {
-                    let prop = (
-                        (hx_ticks[j + 1] - hx_ticks[j]) /
-                        blocks[breakpoints_hy[i].block].w
-                    );
+                    let prop =
+                        ((hx_ticks[j + 1] - hx_ticks[j]) / blocks[breakpoints_hy[i].block].w);
                     key_points_h.set(j, i, breakpoints_hy[i].delta_m.unwrap() * prop);
                 }
             }
@@ -2774,12 +2835,13 @@ impl CutGrid {
         for i in 1..(blocks.len() * 2) {
             for j in 0..(blocks.len() * 3) {
                 key_points_v_sum.set(
-                    j, i,
-                    key_points_v_sum.get(j, i - 1) + key_points_v.get(j, i)
+                    j,
+                    i,
+                    key_points_v_sum.get(j, i - 1) + key_points_v.get(j, i),
                 );
             }
         }
-        
+
         // Compute prefix sums (horizontal grid)
         let mut key_points_h_sum = Simple2DArray::new(blocks.len() * 2, blocks.len() * 3);
         for i in 0..(blocks.len() * 3) {
@@ -2788,8 +2850,9 @@ impl CutGrid {
         for j in 1..(blocks.len() * 2) {
             for i in 0..(blocks.len() * 3) {
                 key_points_h_sum.set(
-                    j, i,
-                    key_points_h_sum.get(j - 1, i) + key_points_h.get(j, i)
+                    j,
+                    i,
+                    key_points_h_sum.get(j - 1, i) + key_points_h.get(j, i),
                 );
             }
         }
@@ -2836,12 +2899,7 @@ impl CutGrid {
         ccn
     }
 
-    pub fn cut_vertical(
-        &self,
-        y_bottom: f32,
-        y_top: f32,
-        cuts: &[f32],
-    ) -> Vec<f32> {
+    pub fn cut_vertical(&self, y_bottom: f32, y_top: f32, cuts: &[f32]) -> Vec<f32> {
         let y_bottom = y_bottom.max(self.vy_ticks[0]);
         let y_tpp = y_top.min(self.vy_ticks[self.vy_ticks.len() - 1]);
 
@@ -2867,10 +2925,8 @@ impl CutGrid {
             }
         } else {
             for j in 0..self.vx_ticks.len() {
-                sum[j] += (
-                    self.key_points_v_sum.get(j, i_top) -
-                    self.key_points_v_sum.get(j, i_bottom - 1)
-                );
+                sum[j] += (self.key_points_v_sum.get(j, i_top)
+                    - self.key_points_v_sum.get(j, i_bottom - 1));
             }
         }
 
@@ -2891,9 +2947,7 @@ impl CutGrid {
                 let x0 = self.vx_ticks[j - 1];
                 let x1 = self.vx_ticks[j];
                 let t = (cuts[i] - x0) / (x1 - x0);
-                penalties.push(
-                    sum[j - 1] + t * (sum[j] - sum[j - 1]) 
-                );
+                penalties.push(sum[j - 1] + t * (sum[j] - sum[j - 1]));
                 i += 1;
             } else {
                 penalties.push(sum[j]);
@@ -2903,12 +2957,7 @@ impl CutGrid {
         penalties
     }
 
-    pub fn cut_horizontal(
-        &self,
-        x_left: f32,
-        x_right: f32,
-        cuts: &[f32],
-    ) -> Vec<f32> {
+    pub fn cut_horizontal(&self, x_left: f32, x_right: f32, cuts: &[f32]) -> Vec<f32> {
         let x_left = x_left.max(self.hy_ticks[0]);
         let x_right = x_right.min(self.hx_ticks[self.hx_ticks.len() - 1]);
 
@@ -2934,10 +2983,8 @@ impl CutGrid {
             }
         } else {
             for i in 0..self.hy_ticks.len() {
-                sum[i] += (
-                    self.key_points_h_sum.get(j_right, i) -
-                    self.key_points_h_sum.get(j_left - 1, i)
-                );
+                sum[i] += (self.key_points_h_sum.get(j_right, i)
+                    - self.key_points_h_sum.get(j_left - 1, i));
             }
         }
 
@@ -2958,9 +3005,7 @@ impl CutGrid {
                 let x0 = self.hy_ticks[j - 1];
                 let x1 = self.hy_ticks[j];
                 let t = (cuts[i] - x0) / (x1 - x0);
-                penalties.push(
-                    sum[j - 1] + t * (sum[j] - sum[j - 1]) 
-                );
+                penalties.push(sum[j - 1] + t * (sum[j] - sum[j - 1]));
                 i += 1;
             } else {
                 penalties.push(sum[j]);
@@ -2970,11 +3015,9 @@ impl CutGrid {
         penalties
     }
 
-    pub fn between_center_cut_heuristic(&self) -> impl Fn(
-        &[LegalBlock],
-        &Region,
-        &Directions,
-    ) -> (Vec<CutLine>, Vec<CutLine>) {
+    pub fn between_center_cut_heuristic(
+        &self,
+    ) -> impl Fn(&[LegalBlock], &Region, &Directions) -> (Vec<CutLine>, Vec<CutLine>) {
         let mut between_v = Vec::with_capacity(self.centers_v.len() - 1);
         for j in 1..self.centers_v.len() {
             between_v.push((self.centers_v[j - 1].1 + self.centers_v[j].1) / 2.0);
@@ -3019,7 +3062,7 @@ impl CutGrid {
             */
             println!("j_left: {j_left}");
             println!("j_right: {j_right}");
-            
+
             let mut between_cuts_v = Vec::with_capacity(j_right - j_left + 1);
             for j in j_left..=j_right {
                 between_cuts_v.push(CutLine {
@@ -3036,8 +3079,8 @@ impl CutGrid {
                 i_bottom += 1;
             }
             let mut i_top = match between_h.binary_search_by(|t| t.total_cmp(&region.ury)) {
-                    Ok(i) => i - 1,
-                    Err(i) => i - 1,
+                Ok(i) => i - 1,
+                Err(i) => i - 1,
             };
             while between_h[i_top] >= region.ury {
                 i_top -= 1
@@ -3066,25 +3109,39 @@ impl CutGrid {
             println!(
                 "between_cuts_v avg: {}, between_cuts_v min: {}, between_cuts_v max: {}",
                 between_cuts_v.iter().map(|c| c.coord).sum::<f32>() / between_cuts_v.len() as f32,
-                between_cuts_v.iter().map(|c| c.coord).min_by(f32::total_cmp).unwrap(),
-                between_cuts_v.iter().map(|c| c.coord).max_by(f32::total_cmp).unwrap(),
+                between_cuts_v
+                    .iter()
+                    .map(|c| c.coord)
+                    .min_by(f32::total_cmp)
+                    .unwrap(),
+                between_cuts_v
+                    .iter()
+                    .map(|c| c.coord)
+                    .max_by(f32::total_cmp)
+                    .unwrap(),
             );
             println!(
                 "between_cuts_h avg: {}, between_cuts_h min: {}, between_cuts_h max: {}",
                 between_cuts_h.iter().map(|c| c.coord).sum::<f32>() / between_cuts_h.len() as f32,
-                between_cuts_h.iter().map(|c| c.coord).min_by(f32::total_cmp).unwrap(),
-                between_cuts_h.iter().map(|c| c.coord).max_by(f32::total_cmp).unwrap(),
+                between_cuts_h
+                    .iter()
+                    .map(|c| c.coord)
+                    .min_by(f32::total_cmp)
+                    .unwrap(),
+                between_cuts_h
+                    .iter()
+                    .map(|c| c.coord)
+                    .max_by(f32::total_cmp)
+                    .unwrap(),
             );
 
             (between_cuts_v, between_cuts_h)
         }
     }
 
-    pub fn center_cut_heuristic(&self) -> impl Fn(
-        &[LegalBlock],
-        &Region,
-        &Directions,
-    ) -> (Vec<CutLine>, Vec<CutLine>) {
+    pub fn center_cut_heuristic(
+        &self,
+    ) -> impl Fn(&[LegalBlock], &Region, &Directions) -> (Vec<CutLine>, Vec<CutLine>) {
         let centers_v = self.centers_v.clone();
         let centers_h = self.centers_h.clone();
         move |blocks, region, directions| {
@@ -3123,7 +3180,7 @@ impl CutGrid {
             */
             println!("j_left: {j_left}");
             println!("j_right: {j_right}");
-            
+
             let mut center_cuts_v = Vec::with_capacity(j_right - j_left + 1);
             for j in j_left..=j_right {
                 center_cuts_v.push(CutLine {
@@ -3140,8 +3197,8 @@ impl CutGrid {
                 i_bottom += 1;
             }
             let mut i_top = match centers_h.binary_search_by(|t| t.1.total_cmp(&region.ury)) {
-                    Ok(i) => i - 1,
-                    Err(i) => i - 1,
+                Ok(i) => i - 1,
+                Err(i) => i - 1,
             };
             while centers_h[i_top].1 >= region.ury {
                 i_top -= 1
@@ -3170,14 +3227,30 @@ impl CutGrid {
             println!(
                 "center_cuts_v avg: {}, center_cuts_v min: {}, center_cuts_v max: {}",
                 center_cuts_v.iter().map(|c| c.coord).sum::<f32>() / center_cuts_v.len() as f32,
-                center_cuts_v.iter().map(|c| c.coord).min_by(f32::total_cmp).unwrap(),
-                center_cuts_v.iter().map(|c| c.coord).max_by(f32::total_cmp).unwrap(),
+                center_cuts_v
+                    .iter()
+                    .map(|c| c.coord)
+                    .min_by(f32::total_cmp)
+                    .unwrap(),
+                center_cuts_v
+                    .iter()
+                    .map(|c| c.coord)
+                    .max_by(f32::total_cmp)
+                    .unwrap(),
             );
             println!(
                 "center_cuts_h avg: {}, center_cuts_h min: {}, center_cuts_h max: {}",
                 center_cuts_h.iter().map(|c| c.coord).sum::<f32>() / center_cuts_h.len() as f32,
-                center_cuts_h.iter().map(|c| c.coord).min_by(f32::total_cmp).unwrap(),
-                center_cuts_h.iter().map(|c| c.coord).max_by(f32::total_cmp).unwrap(),
+                center_cuts_h
+                    .iter()
+                    .map(|c| c.coord)
+                    .min_by(f32::total_cmp)
+                    .unwrap(),
+                center_cuts_h
+                    .iter()
+                    .map(|c| c.coord)
+                    .max_by(f32::total_cmp)
+                    .unwrap(),
             );
 
             (center_cuts_v, center_cuts_h)
@@ -3208,14 +3281,10 @@ impl CutGrid {
     */
 }
 
-pub fn original_penalty_heuristic<'a> (
+pub fn original_penalty_heuristic<'a>(
     area_grid: &'a AreaGrid,
     cut_grid: &'a CutGrid,
-) -> impl 'a + FnMut(
-    &[LegalBlock],
-    &Region,
-    (&mut [CutLine], &mut [CutLine]),
-) -> () {
+) -> impl 'a + FnMut(&[LegalBlock], &Region, (&mut [CutLine], &mut [CutLine])) -> () {
     |blocks, region, (cuts_v, cuts_h)| {
         let cut_penalties_v = cut_grid.cut_vertical(
             region.lly,
@@ -3255,11 +3324,7 @@ pub fn original_penalty_heuristic<'a> (
     }
 }
 
-pub fn draw_blocks(
-    blocks: &[LegalBlock],
-    filename: &str,
-    dimensions: (f32, f32),
-) {
+pub fn draw_blocks(blocks: &[LegalBlock], filename: &str, dimensions: (f32, f32)) {
     let mut llx = f32::INFINITY;
     let mut lly = f32::INFINITY;
     let mut urx = f32::NEG_INFINITY;
@@ -3294,354 +3359,350 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_find_optimal_cut() {
-        let blocks = vec![
-            LegalBlock { tag: 0, x: 0.0, y: 0.0, w: 10.0, h: 10.0 },
-            LegalBlock { tag: 1, x: 15.0, y: 0.0, w: 10.0, h: 10.0 },
-            LegalBlock { tag: 2, x: 30.0, y: 0.0, w: 10.0, h: 10.0 },
-        ];
+    // fn test_find_optimal_cut() {
+    //     let blocks = vec![
+    //         LegalBlock { tag: 0, x: 0.0, y: 0.0, w: 10.0, h: 10.0 },
+    //         LegalBlock { tag: 1, x: 15.0, y: 0.0, w: 10.0, h: 10.0 },
+    //         LegalBlock { tag: 2, x: 30.0, y: 0.0, w: 10.0, h: 10.0 },
+    //     ];
 
-        let region = Region {
-            kind: RegionKind::Leaf,
-            left: None,
-            right: None,
-            subregions: Vec::new(),
-            blocks: (0..blocks.len()).collect(),
-            parent: None,
-            cut_coord: None,
-            llx: blocks.iter().map(|b| b.x).min_by(|a, b| a.total_cmp(b)).unwrap(),
-            lly: blocks.iter().map(|b| b.y).min_by(|a, b| a.total_cmp(b)).unwrap(),
-            urx: blocks.iter().map(|b| b.x + b.w).max_by(|a, b| a.total_cmp(b)).unwrap(),
-            ury: blocks.iter().map(|b| b.y + b.h).max_by(|a, b| a.total_cmp(b)).unwrap(),
-        };
+    //     let region = Region {
+    //         kind: RegionKind::Leaf,
+    //         left: None,
+    //         right: None,
+    //         subregions: Vec::new(),
+    //         blocks: (0..blocks.len()).collect(),
+    //         parent: None,
+    //         cut_coord: None,
+    //         llx: blocks.iter().map(|b| b.x).min_by(|a, b| a.total_cmp(b)).unwrap(),
+    //         lly: blocks.iter().map(|b| b.y).min_by(|a, b| a.total_cmp(b)).unwrap(),
+    //         urx: blocks.iter().map(|b| b.x + b.w).max_by(|a, b| a.total_cmp(b)).unwrap(),
+    //         ury: blocks.iter().map(|b| b.y + b.h).max_by(|a, b| a.total_cmp(b)).unwrap(),
+    //     };
 
-        let mut cuts = center_cut_heuristic(&blocks, &region, false);
+    //     let mut cuts = center_cut_heuristic(&blocks, &region, false);
 
-        for cut in &mut cuts {
-            cut.penalty = Some(cut_penalty(&blocks, &region, &cut)); 
-        }
+    //     for cut in &mut cuts {
+    //         cut.penalty = Some(cut_penalty(&blocks, &region, &cut));
+    //     }
 
-        cuts.iter().filter(|c| area_ratio_heuristic(0.4, 0.6)(&blocks, &region, c));
+    //     cuts.iter().filter(|c| area_ratio_heuristic(0.4, 0.6)(&blocks, &region, c));
 
-        let result = min_penalty_heuristic(&blocks, &region, &cuts);
+    //     let result = min_penalty_heuristic(&blocks, &region, &cuts);
 
-        //let result = find_optimal_cut_vertical(&blocks, 0.4, 0.6);
-        assert!(result.is_some());
-        
-        let cut = result.unwrap();
-        assert_eq!(cut.left_blocks.len(), 2);
-        assert_eq!(cut.right_blocks.len(), 1);
-    }
+    //     //let result = find_optimal_cut_vertical(&blocks, 0.4, 0.6);
+    //     assert!(result.is_some());
 
+    //     let cut = result.unwrap();
+    //     assert_eq!(cut.left_blocks.len(), 2);
+    //     assert_eq!(cut.right_blocks.len(), 1);
+    // }
     #[test]
-    fn test_cut_penalty() {
-        // create a large block
-        let blocks = vec![
-            LegalBlock { tag: 0, x: 0.0, y: 0.0, w: 100.0, h: 10.0 }, // big block
-            LegalBlock { tag: 1, x: 120.0, y: 0.0, w: 10.0, h: 10.0 }, // small
-        ];
+    // fn test_cut_penalty() {
+    //     // create a large block
+    //     let blocks = vec![
+    //         LegalBlock { tag: 0, x: 0.0, y: 0.0, w: 100.0, h: 10.0 }, // big block
+    //         LegalBlock { tag: 1, x: 120.0, y: 0.0, w: 10.0, h: 10.0 }, // small
+    //     ];
 
-        let region = Region {
-            kind: RegionKind::Leaf,
-            left: None,
-            right: None,
-            subregions: Vec::new(),
-            blocks: (0..blocks.len()).collect(),
-            parent: None,
-            cut_coord: None,
-            llx: blocks.iter().map(|b| b.x).min_by(|a, b| a.total_cmp(b)).unwrap(),
-            lly: blocks.iter().map(|b| b.y).min_by(|a, b| a.total_cmp(b)).unwrap(),
-            urx: blocks.iter().map(|b| b.x + b.w).max_by(|a, b| a.total_cmp(b)).unwrap(),
-            ury: blocks.iter().map(|b| b.y + b.h).max_by(|a, b| a.total_cmp(b)).unwrap(),
-        };
+    //     let region = Region {
+    //         kind: RegionKind::Leaf,
+    //         left: None,
+    //         right: None,
+    //         subregions: Vec::new(),
+    //         blocks: (0..blocks.len()).collect(),
+    //         parent: None,
+    //         cut_coord: None,
+    //         llx: blocks.iter().map(|b| b.x).min_by(|a, b| a.total_cmp(b)).unwrap(),
+    //         lly: blocks.iter().map(|b| b.y).min_by(|a, b| a.total_cmp(b)).unwrap(),
+    //         urx: blocks.iter().map(|b| b.x + b.w).max_by(|a, b| a.total_cmp(b)).unwrap(),
+    //         ury: blocks.iter().map(|b| b.y + b.h).max_by(|a, b| a.total_cmp(b)).unwrap(),
+    //     };
 
-        let mut cuts = center_cut_heuristic(&blocks, &region, false);
+    //     let mut cuts = center_cut_heuristic(&blocks, &region, false);
 
-        for cut in &mut cuts {
-            cut.penalty = Some(cut_penalty(&blocks, &region, &cut)); 
-        }
+    //     for cut in &mut cuts {
+    //         cut.penalty = Some(cut_penalty(&blocks, &region, &cut));
+    //     }
 
-        cuts.iter().filter(|c| area_ratio_heuristic(0.4, 0.6)(&blocks, &region, c));
+    //     cuts.iter().filter(|c| area_ratio_heuristic(0.4, 0.6)(&blocks, &region, c));
 
-        let result = min_penalty_heuristic(&blocks, &region, &cuts);
+    //     let result = min_penalty_heuristic(&blocks, &region, &cuts);
 
-        //let result = find_optimal_cut_vertical(&blocks, 0.4, 0.6);
-        assert!(result.is_some());
-        
-        let cut = result.unwrap();
-        // cutting line avoid crossing large blocks, it might be cut to the right of the block
-        assert!(cut.cut_coord > 100.0);
-    }
+    //     //let result = find_optimal_cut_vertical(&blocks, 0.4, 0.6);
+    //     assert!(result.is_some());
 
+    //     let cut = result.unwrap();
+    //     // cutting line avoid crossing large blocks, it might be cut to the right of the block
+    //     assert!(cut.cut_coord > 100.0);
+    // }
     #[test]
-    fn test_area_grid() {
-        let blocks = load(&String::from("./benches/ibm01.legal.txt")).blocks;
+    // fn test_area_grid() {
+    //     let blocks = load(&String::from("./benches/ibm01.legal.txt")).blocks;
 
-        let region_bbox = BBox {
-            llx: 200.0,
-            lly: 300.0,
-            urx: 600.0,
-            ury: 500.0,
-        };
+    //     let region_bbox = BBox {
+    //         llx: 200.0,
+    //         lly: 300.0,
+    //         urx: 600.0,
+    //         ury: 500.0,
+    //     };
 
-        /*
-        let blocks = vec![
-            LegalBlock {
-                tag: 0,
-                x: 0.0,
-                y: 0.0,
-                w: 4.0,
-                h: 4.0,
-            },
-            LegalBlock {
-                tag: 1,
-                x: 6.0,
-                y: 6.0,
-                w: 3.0,
-                h: 3.0,
-            }
-        ];
+    //     /*
+    //     let blocks = vec![
+    //         LegalBlock {
+    //             tag: 0,
+    //             x: 0.0,
+    //             y: 0.0,
+    //             w: 4.0,
+    //             h: 4.0,
+    //         },
+    //         LegalBlock {
+    //             tag: 1,
+    //             x: 6.0,
+    //             y: 6.0,
+    //             w: 3.0,
+    //             h: 3.0,
+    //         }
+    //     ];
 
-        let region_bbox = BBox {
-            llx: 0.0,
-            lly: 0.0,
-            urx: 12.0,
-            ury: 12.0,
-        };
-        */
+    //     let region_bbox = BBox {
+    //         llx: 0.0,
+    //         lly: 0.0,
+    //         urx: 12.0,
+    //         ury: 12.0,
+    //     };
+    //     */
 
-        // Compute the area the old-fashioned way
-        // but take into account split areas
-        let mut old_area = 0.0;
-        for block in &blocks {
-            let block_bbox = BBox {
-                llx: block.x,
-                lly: block.y,
-                urx: block.x + block.w,
-                ury: block.y + block.h,
-            };
+    //     // Compute the area the old-fashioned way
+    //     // but take into account split areas
+    //     let mut old_area = 0.0;
+    //     for block in &blocks {
+    //         let block_bbox = BBox {
+    //             llx: block.x,
+    //             lly: block.y,
+    //             urx: block.x + block.w,
+    //             ury: block.y + block.h,
+    //         };
 
-            // Compute the intersection between the
-            // region and the block
-            let intersect = region_bbox.intersect(&block_bbox);
+    //         // Compute the intersection between the
+    //         // region and the block
+    //         let intersect = region_bbox.intersect(&block_bbox);
 
-            // Check if there is an intersection and
-            // skip this block if otherwise
-            if intersect.urx < intersect.llx || intersect.ury < intersect.lly {
-                continue;
-            }
+    //         // Check if there is an intersection and
+    //         // skip this block if otherwise
+    //         if intersect.urx < intersect.llx || intersect.ury < intersect.lly {
+    //             continue;
+    //         }
 
-            // Compute and update the area
-            old_area += (intersect.urx - intersect.llx) * (intersect.ury - intersect.lly);
-        }
+    //         // Compute and update the area
+    //         old_area += (intersect.urx - intersect.llx) * (intersect.ury - intersect.lly);
+    //     }
 
-        // Compute the area the new way
-        let outer_bbox = BBox::new(&blocks);
-        let mut area_calc = AreaCalculatorBuilder::new(
-            outer_bbox.llx,
-            outer_bbox.lly,
-            outer_bbox.urx,
-            outer_bbox.ury,
-            1.0,
-        );
+    //     // Compute the area the new way
+    //     let outer_bbox = BBox::new(&blocks);
+    //     let mut area_calc = AreaCalculatorBuilder::new(
+    //         outer_bbox.llx,
+    //         outer_bbox.lly,
+    //         outer_bbox.urx,
+    //         outer_bbox.ury,
+    //         1.0,
+    //     );
 
-        for block in &blocks {
-            area_calc.add_block(
-                block.x,
-                block.y,
-                block.x + block.w,
-                block.y + block.h,
-            );
-        }
+    //     for block in &blocks {
+    //         area_calc.add_block(
+    //             block.x,
+    //             block.y,
+    //             block.x + block.w,
+    //             block.y + block.h,
+    //         );
+    //     }
 
-        //println!("{}", area_calc.grid);
+    //     //println!("{}", area_calc.grid);
 
-        let area_calc = area_calc.build();
-        //println!("{}", area_calc.grid);
+    //     let area_calc = area_calc.build();
+    //     //println!("{}", area_calc.grid);
 
-        let new_area = area_calc.area(
-            region_bbox.llx,
-            region_bbox.lly,
-            region_bbox.urx,
-            region_bbox.ury,
-        );
+    //     let new_area = area_calc.area(
+    //         region_bbox.llx,
+    //         region_bbox.lly,
+    //         region_bbox.urx,
+    //         region_bbox.ury,
+    //     );
 
-        //println!("Old area: {}", old_area);
-        //println!("New area: {}", new_area);
+    //     //println!("Old area: {}", old_area);
+    //     //println!("New area: {}", new_area);
 
-        assert_eq!(old_area, new_area);
-    }
-
+    //     assert_eq!(old_area, new_area);
+    // }
     #[test]
-    fn test_cut_grid() {
-        let blocks = load(&String::from("./benches/ibm01.legal.txt")).blocks;
+    // fn test_cut_grid() {
+    //     let blocks = load(&String::from("./benches/ibm01.legal.txt")).blocks;
 
-        /*
-        let blocks = vec![
-            LegalBlock {
-                tag: 0,
-                x: 0.0,
-                y: 0.0,
-                w: 7.0,
-                h: 5.0,
-            },
-            LegalBlock {
-                tag: 4,
-                x: 6.0,
-                y: 0.0,
-                w: 7.0,
-                h: 6.0,
-            },
-            LegalBlock {
-                tag: 1,
-                x: 2.0,
-                y: 6.0,
-                w: 3.0,
-                h: 3.0,
-            },
-            LegalBlock {
-                tag: 2,
-                x: 100.0,
-                y: 100.0,
-                w: 50.0,
-                h: 50.0,
-            },
-            LegalBlock {
-                tag: 3,
-                x: 0.0,
-                y: 0.0,
-                w: 7.0,
-                h: 5.0,
-            },
-        ];
-        */
+    //     /*
+    //     let blocks = vec![
+    //         LegalBlock {
+    //             tag: 0,
+    //             x: 0.0,
+    //             y: 0.0,
+    //             w: 7.0,
+    //             h: 5.0,
+    //         },
+    //         LegalBlock {
+    //             tag: 4,
+    //             x: 6.0,
+    //             y: 0.0,
+    //             w: 7.0,
+    //             h: 6.0,
+    //         },
+    //         LegalBlock {
+    //             tag: 1,
+    //             x: 2.0,
+    //             y: 6.0,
+    //             w: 3.0,
+    //             h: 3.0,
+    //         },
+    //         LegalBlock {
+    //             tag: 2,
+    //             x: 100.0,
+    //             y: 100.0,
+    //             w: 50.0,
+    //             h: 50.0,
+    //         },
+    //         LegalBlock {
+    //             tag: 3,
+    //             x: 0.0,
+    //             y: 0.0,
+    //             w: 7.0,
+    //             h: 5.0,
+    //         },
+    //     ];
+    //     */
 
-        let outer_bbox = BBox::new(&blocks);
-        /*
-        let mut cut_calc = CutCalculatorBuilder::new(
-            outer_bbox.llx,
-            outer_bbox.lly,
-            outer_bbox.urx,
-            outer_bbox.ury,
-            1.0,
-        );
-         */
+    //     let outer_bbox = BBox::new(&blocks);
+    //     /*
+    //     let mut cut_calc = CutCalculatorBuilder::new(
+    //         outer_bbox.llx,
+    //         outer_bbox.lly,
+    //         outer_bbox.urx,
+    //         outer_bbox.ury,
+    //         1.0,
+    //     );
+    //      */
 
-        let cut_calc = CutCalculatorNew::new(&blocks);
+    //     let cut_calc = CutCalculatorNew::new(&blocks);
 
-        /*
-        for block in &blocks {
-            cut_calc.add_block(
-                block.x,
-                block.y,
-                block.x + block.w,
-                block.y + block.h,
-                block.w * block.h,
-            );
-        }
-        */
+    //     /*
+    //     for block in &blocks {
+    //         cut_calc.add_block(
+    //             block.x,
+    //             block.y,
+    //             block.x + block.w,
+    //             block.y + block.h,
+    //             block.w * block.h,
+    //         );
+    //     }
+    //     */
 
-        //println!("{}", cut_calc.grid_vertical);
+    //     //println!("{}", cut_calc.grid_vertical);
 
-        //let cut_calc = cut_calc.build();
+    //     //let cut_calc = cut_calc.build();
 
-        {
-            let cut: f32 = 600.5;
-            let y_bottom: f32 = 50.0;
-            let y_top: f32 = 800.0;
+    //     {
+    //         let cut: f32 = 600.5;
+    //         let y_bottom: f32 = 50.0;
+    //         let y_top: f32 = 800.0;
 
-            let mut old_penalty = 0.0;
+    //         let mut old_penalty = 0.0;
 
-            for block in &blocks {
-                if block.x > cut || block.x + block.w < cut {
-                    continue;
-                }
+    //         for block in &blocks {
+    //             if block.x > cut || block.x + block.w < cut {
+    //                 continue;
+    //             }
 
-                let cut_size = y_top.min(block.y + block.h) - y_bottom.max(block.y);
-                if cut_size <= 0.0 {
-                    continue;
-                }
-                let cut_prop = cut_size / block.h;
+    //             let cut_size = y_top.min(block.y + block.h) - y_bottom.max(block.y);
+    //             if cut_size <= 0.0 {
+    //                 continue;
+    //             }
+    //             let cut_prop = cut_size / block.h;
 
-                let center = block.x + (block.w / 2.0);
-                let score = (block.w / 2.0) - (cut - center).abs();
-                let score = score / block.w;
+    //             let center = block.x + (block.w / 2.0);
+    //             let score = (block.w / 2.0) - (cut - center).abs();
+    //             let score = score / block.w;
 
-                old_penalty += (block.w * block.h) * score * cut_prop;
-            }
+    //             old_penalty += (block.w * block.h) * score * cut_prop;
+    //         }
 
-            let new_penalty = cut_calc.cut_vertical(y_bottom, y_top, &[cut]);
+    //         let new_penalty = cut_calc.cut_vertical(y_bottom, y_top, &[cut]);
 
-            println!("Old vertical penalty: {}", old_penalty);
-            println!("New vertical penalty: {}", new_penalty[0]);
-        }
+    //         println!("Old vertical penalty: {}", old_penalty);
+    //         println!("New vertical penalty: {}", new_penalty[0]);
+    //     }
 
-        println!();
+    //     println!();
 
-        {
-            let cut: f32 = 400.5;
-            let x_left: f32 = 100.0;
-            let x_right: f32 = 900.0;
+    //     {
+    //         let cut: f32 = 400.5;
+    //         let x_left: f32 = 100.0;
+    //         let x_right: f32 = 900.0;
 
-            let mut old_penalty = 0.0;
+    //         let mut old_penalty = 0.0;
 
-            for block in &blocks {
-                if block.y > cut || block.y + block.h < cut {
-                    continue;
-                }
+    //         for block in &blocks {
+    //             if block.y > cut || block.y + block.h < cut {
+    //                 continue;
+    //             }
 
-                let cut_size = x_right.min(block.x + block.w) - x_left.max(block.x);
-                if cut_size <= 0.0 {
-                    continue;
-                }
-                let cut_prop = cut_size / block.w;
+    //             let cut_size = x_right.min(block.x + block.w) - x_left.max(block.x);
+    //             if cut_size <= 0.0 {
+    //                 continue;
+    //             }
+    //             let cut_prop = cut_size / block.w;
 
-                let center = block.y + (block.h / 2.0);
-                let score = (block.h / 2.0) - (cut - center).abs();
-                let score = score / block.h;
+    //             let center = block.y + (block.h / 2.0);
+    //             let score = (block.h / 2.0) - (cut - center).abs();
+    //             let score = score / block.h;
 
-                old_penalty += (block.w * block.h) * score * cut_prop;
-            }
+    //             old_penalty += (block.w * block.h) * score * cut_prop;
+    //         }
 
-            let new_penalty = cut_calc.cut_horizontal(x_left, x_right, &[cut]);
+    //         let new_penalty = cut_calc.cut_horizontal(x_left, x_right, &[cut]);
 
-            println!("Old horizontal penalty: {}", old_penalty);
-            println!("New horizontal penalty: {}", new_penalty[0]);
-        }
-       
-        //println!("{}", cut_calc);
+    //         println!("Old horizontal penalty: {}", old_penalty);
+    //         println!("New horizontal penalty: {}", new_penalty[0]);
+    //     }
 
-        panic!();
-    }
+    //     //println!("{}", cut_calc);
 
-    #[test]
-    fn test_basic_cut_grid() {
-        let mut cut_calc = CutCalculatorBuilder::new(
-            0.0,
-            0.0,
-            10.0,
-            10.0,
-            1.0,
-        );
+    //     panic!();
+    // }
 
-        cut_calc.add_block(
-            2.0,
-            2.0,
-            5.0,
-            3.0,
-            100.0,
-        );
+    // #[test]
+    // fn test_basic_cut_grid() {
+    //     let mut cut_calc = CutCalculatorBuilder::new(
+    //         0.0,
+    //         0.0,
+    //         10.0,
+    //         10.0,
+    //         1.0,
+    //     );
 
-        let mut grid = cut_calc.grid_vertical;
+    //     cut_calc.add_block(
+    //         2.0,
+    //         2.0,
+    //         5.0,
+    //         3.0,
+    //         100.0,
+    //     );
 
-        grid.integrate();
-        grid.integrate();
+    //     let mut grid = cut_calc.grid_vertical;
 
-        println!("{}", grid);
+    //     grid.integrate();
+    //     grid.integrate();
 
-        panic!();
-    }
+    //     println!("{}", grid);
 
+    //     panic!();
+    // }
     #[test]
     fn block_count() {
         let blocks = load(&String::from("./benches/ibm01.legal.txt")).blocks;
