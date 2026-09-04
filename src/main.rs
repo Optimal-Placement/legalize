@@ -144,6 +144,10 @@ fn main() {
         }
         println!();
         */
+        let mut pst = pstools::PSTool::new();
+        legalize::legalize::render(&mut pst, &lp.blocks, &regions, 0, 0, 4);
+        pst.generate("render.ps".to_string());
+
 
         legalize::legalize::draw_bisection(
             &lp.blocks,

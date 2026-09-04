@@ -2122,6 +2122,20 @@ fn find_cut(
     (best_penalty, a_block_list, a_area, b_block_list, b_area)
 }
 
+pub fn render(pst: &mut pstools::PSTool, blocks: &[LegalBlock], regions: &Vec<Region>, i: usize, depth: usize, max_depth: usize) {
+    if depth == max_depth || regions[i].left.is_none() {
+        let (r, g, b) = pstools::PSTool::gen_color(i as i32);
+        pst.set_color(r, g, b, 1.0);
+        for b in &regions[i].blocks {
+            let block = &blocks[*b];
+            pst.add_box(block.x, block.y, block.x + block.w, block.y + block.h);
+        }
+        return;
+    }
+    render(pst, blocks, regions, regions[i].left.unwrap(), depth + 1, max_depth);
+    render(pst, blocks, regions, regions[i].right.unwrap(), depth + 1, max_depth);
+}
+
 pub fn recursive_bisection(
     blocks: &[LegalBlock],
     direction_heuristic: impl Fn(&[LegalBlock], &Region) -> Directions,
