@@ -118,22 +118,22 @@ fn main() {
         */
 
         let regions = legalize::legalize::recursive_bisection(
-            &lp.blocks,
-            legalize::legalize::no_direction_heuristic,
-            legalize::legalize::CutAndPenalizeStreamlined::new(
-                10,
-                legalize::legalize::streamlined_penalty(1.0),
-            ),
+            &lp.blocks, None
+            // legalize::legalize::no_direction_heuristic,
+            // legalize::legalize::CutAndPenalizeStreamlined::new(
+            //    10,
+            //    legalize::legalize::streamlined_penalty(1.0),
+            // ),
             /*
             legalize::legalize::CutAndPenalizeCustom::new(
                 &cut_grid.between_center_cut_heuristic(),
                 Some(&mut legalize::legalize::original_penalty_heuristic(&area_grid, &cut_grid)),
             ),
             */
-            &[], //&[&legalize::legalize::band_heuristic(0.99)],
+            // &[], //&[&legalize::legalize::band_heuristic(0.99)],
             /*&[&legalize::legalize::band_heuristic(0.9)],*/
-            legalize::legalize::min_penalty_heuristic,
-            None,
+            //legalize::legalize::min_penalty_heuristic,
+            // None,
         );
 
         /*

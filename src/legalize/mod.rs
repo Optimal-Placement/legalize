@@ -2143,10 +2143,10 @@ pub fn render(pst: &mut pstools::PSTool, blocks: &[LegalBlock], regions: &Vec<Re
 
 pub fn recursive_bisection(
     blocks: &[LegalBlock],
-    direction_heuristic: impl Fn(&[LegalBlock], &Region) -> Directions,
-    mut cut_and_penalize: impl CutAndPenalize,
-    filter_heuristics: &[&dyn Fn(&[LegalBlock], &Region, &CutLine) -> bool],
-    selection_heuristic: impl Fn(&[LegalBlock], &Region, (&[CutLine], &[CutLine])) -> Option<CutLine>,
+    // direction_heuristic: impl Fn(&[LegalBlock], &Region) -> Directions,
+    // mut cut_and_penalize: impl CutAndPenalize,
+    // filter_heuristics: &[&dyn Fn(&[LegalBlock], &Region, &CutLine) -> bool],
+    // selection_heuristic: impl Fn(&[LegalBlock], &Region, (&[CutLine], &[CutLine])) -> Option<CutLine>,
     max_depth: Option<usize>,
 ) -> Vec<Region> {
     //let block_indices: Vec<usize> = (0..blocks.len()).collect();
