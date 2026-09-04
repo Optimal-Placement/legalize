@@ -2126,6 +2126,10 @@ pub fn render(pst: &mut pstools::PSTool, blocks: &[LegalBlock], regions: &Vec<Re
     if depth == max_depth || regions[i].left.is_none() {
         let (r, g, b) = pstools::PSTool::gen_color(i as i32);
         pst.set_color(r, g, b, 1.0);
+        let reg = &regions[i];
+        pst.set_line_width(4.0);
+        pst.add_box(reg.llx, reg.lly, reg.urx, reg.ury);
+        pst.set_line_width(1.0);
         for b in &regions[i].blocks {
             let block = &blocks[*b];
             pst.add_box(block.x, block.y, block.x + block.w, block.y + block.h);
