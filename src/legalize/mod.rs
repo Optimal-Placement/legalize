@@ -26,6 +26,13 @@ use std::path::Path;
 use bookshelf_r::bookshelf::BookshelfCircuit;
 use pstools;
 
+
+pub fn version() -> String {
+     let version = option_env!("LEGALIZEGIT_HASH").unwrap_or(&"no hash");
+
+     version.to_string()
+}
+
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum LegalKind {
     Tetris,
